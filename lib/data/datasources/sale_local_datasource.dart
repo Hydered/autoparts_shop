@@ -197,4 +197,32 @@ class SaleLocalDataSource {
       throw app_exceptions.AppDatabaseException('Не удалось получить количество продаж: $e');
     }
   }
+
+  Future<List<SaleModel>> getSalesByOrderNumber(String orderNumber, int userId, {bool ignoreClientDeletedHistory = false}) async {
+    try {
+      final db = await dbHelper.database;
+      final maps = await db.rawQuery('''
+        SELECT
+          s.id as id,
+          s.created_at as created_at,
+          s.order_number as order_number,
+          s.total_price as total_price,
+          s.status as status,
+          s.user_id as user_id,
+          s.CustomerName as customer_name,
+          s.Notes as notes,
+          si.product_id as product_id,
+          si.quantity as quantity,
+          si.price as unit_price
+        FROM Sales s
+        INNER JOIN SaleItems si ON s.id = si.sale_id
+        WHERE s.order_number = ? AND s.user_id = ?
+        ${ignoreClientDeletedHistory ? '' : 'AND (s.client_deleted_history IS NULL OR s.client_deleted_history = 0)'}
+        ORDER BY s.created_at DESC
+      ''', [orderNumber, userId]);
+      return maps.map((map) => SaleModel.fromJson(map)).toList();
+    } catch (e) {
+      throw app_exceptions.AppDatabaseException('Не удалось получить продажи по номеру заказа: $e');
+    }
+  }
 }

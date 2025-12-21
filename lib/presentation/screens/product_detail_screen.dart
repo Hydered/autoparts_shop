@@ -103,9 +103,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Future<void> _addToCart() async {
     if (_product == null) return;
     final saleProvider = context.read<SaleProvider>();
+    final authProvider = context.read<AuthProvider>();
     try {
-      await saleProvider.inventoryService.validateSale(_product!.id!, 1);
-      saleProvider.addToCart(SaleItem(product: _product!, quantity: 1));
+      await saleProvider.inventoryService.validateSale(_product!.id!, 1, authProvider.userId);
+      await saleProvider.addToCart(SaleItem(product: _product!, quantity: 1), authProvider.userId!);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Товар добавлен в корзину')),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/sale_provider.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -116,10 +117,20 @@ class _LoginTabState extends State<LoginTab> {
     setState(() => _formError = null);
     if (_formKey.currentState?.validate() != true) return;
     final auth = context.read<AuthProvider>();
+    final saleProvider = context.read<SaleProvider>();
     try {
       final email = _emailController.text.trim();
       final pass = _passwordController.text;
+      // Выполняем вход пользователя
       await auth.login(email, pass);
+
+      // После успешного входа загружаем персональную корзину пользователя
+      // Только для авторизованных пользователей (не гостей)
+      if (!auth.isGuest && auth.userId != null) {
+        await saleProvider.loadCart(auth.userId);
+      }
+
+      // Возвращаемся к предыдущему экрану
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       var message = e.toString();
@@ -276,6 +287,7 @@ class _RegisterTabState extends State<RegisterTab> {
         return;
       }
 
+      // Регистрируем нового пользователя
       await auth.registerClient(
         fullName: _fullNameController.text.trim(),
         phone: _phoneController.text.trim(),
@@ -283,6 +295,14 @@ class _RegisterTabState extends State<RegisterTab> {
         email: email,
         password: pass,
       );
+
+      // Важно: очищаем корзину для нового пользователя
+      // Это гарантирует, что у каждого клиента индивидуальная корзина
+      // и товары гостя не переносятся к зарегистрированному пользователю
+      final saleProvider = context.read<SaleProvider>();
+      await saleProvider.clearCart(auth.userId);
+
+      // Возвращаемся к предыдущему экрану после успешной регистрации
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       var message = e.toString();

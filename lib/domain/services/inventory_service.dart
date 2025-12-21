@@ -1,11 +1,13 @@
 import '../entities/product.dart';
 import '../repositories/product_repository.dart';
+import '../repositories/cart_repository.dart';
 import '../../core/exceptions/app_exceptions.dart';
 
 class InventoryService {
   final ProductRepository productRepository;
+  final CartRepository cartRepository;
 
-  InventoryService(this.productRepository);
+  InventoryService(this.productRepository, this.cartRepository);
 
   Future<bool> checkAvailability(int productId, int requestedQuantity) async {
     final product = await productRepository.getProductById(productId);
@@ -15,15 +17,24 @@ class InventoryService {
     return product.quantity >= requestedQuantity;
   }
 
-  Future<void> validateSale(int productId, int requestedQuantity) async {
+  Future<void> validateSale(int productId, int requestedQuantity, int? userId) async {
     final product = await productRepository.getProductById(productId);
     if (product == null) {
       throw NotFoundException('Product');
     }
-    if (product.quantity < requestedQuantity) {
+
+    // Получить зарезервированное количество товара
+    final reservedQuantities = await cartRepository.getReservedQuantities();
+    final reservedQuantity = reservedQuantities[productId] ?? 0;
+    final userReserved = await cartRepository.getUserReservedQuantity(productId, userId);
+    final reservedByOthers = reservedQuantity - userReserved;
+    // Доступное количество для этого пользователя:
+    final availableQuantity = product.quantity - reservedByOthers;
+
+    if (availableQuantity < requestedQuantity) {
       throw InsufficientStockException(
         product.name,
-        product.quantity,
+        availableQuantity,
         requestedQuantity,
       );
     }

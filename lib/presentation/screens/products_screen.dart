@@ -9,6 +9,7 @@ import '../providers/auth_provider.dart';
 import '../widgets/product_card.dart';
 import '../widgets/profile_section.dart';
 import '../../domain/entities/sale_item.dart';
+import '../../domain/entities/product.dart';
 import '../widgets/empty_state_widget.dart';
 import '../widgets/loading_widget.dart';
 import 'product_detail_screen.dart' show ProductDetailScreen;
@@ -26,16 +27,34 @@ class _ProductsScreenState extends State<ProductsScreen> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounceTimer;
   final ScrollController _scrollController = ScrollController();
+  final Map<int, int> _availableQuantitiesCache = {};
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ProductProvider>().loadProducts(refresh: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final auth = context.read<AuthProvider>();
+      _clearAvailableQuantitiesCache();
+      // Загружаем продукты только если они еще не загружены
+      final productProvider = context.read<ProductProvider>();
+      final saleProvider = context.read<SaleProvider>();
+      if (productProvider.products.isEmpty) {
+        await productProvider.loadProducts(refresh: true);
+        // После загрузки применяем резервирования из корзины
+        await saleProvider.applyCartReservationsToProducts(currentUserId: auth.userId);
+      } else {
+        // Если продукты уже загружены, применяем резервирования
+        await saleProvider.applyCartReservationsToProducts(currentUserId: auth.userId);
+      }
       context.read<CategoryProvider>().loadCategories();
     });
-
     _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Auth state changes are handled in the Consumer widgets
   }
 
   void _onScroll() {
@@ -58,6 +77,163 @@ class _ProductsScreenState extends State<ProductsScreen> {
     _debounceTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _clearAvailableQuantitiesCache() {
+    _availableQuantitiesCache.clear();
+  }
+
+  Future<void> _showFilterDialog() async {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(AppStrings.filter),
+          content: Consumer2<ProductProvider, CategoryProvider>(
+            builder: (context, productProvider, categoryProvider, child) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (categoryProvider.categories.isNotEmpty)
+                    DropdownButtonFormField<int?>(
+                      value: productProvider.selectedCategoryId,
+                      decoration: const InputDecoration(
+                        labelText: AppStrings.category,
+                      ),
+                      items: [
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('Все категории'),
+                        ),
+                        ...categoryProvider.categories.map(
+                          (category) => DropdownMenuItem<int?>(
+                            value: category.id,
+                            child: Text(category.name),
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        productProvider.setSelectedCategoryId(value);
+                        productProvider.loadProducts(refresh: true);
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: productProvider.sortBy,
+                    decoration: const InputDecoration(
+                      labelText: 'Сортировка',
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'created_at',
+                        child: Text('По дате добавления'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'name',
+                        child: Text('По названию'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'price',
+                        child: Text('По цене'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'quantity',
+                        child: Text('По количеству'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        productProvider.setSortBy(value);
+                        productProvider.loadProducts(refresh: true);
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Очистить фильтры'),
+              onPressed: () {
+                context.read<ProductProvider>().clearFilters();
+                context.read<ProductProvider>().loadProducts(refresh: true);
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Закрыть'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _addToCart(Product product, int? userId, SaleProvider saleProvider, bool isGuest) async {
+    if (product.id == null) return;
+    try {
+      await saleProvider.inventoryService.validateSale(product.id!, 1, userId);
+      await saleProvider.addToCart(
+        SaleItem(product: product, quantity: 1),
+        userId,
+        isGuest: isGuest,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Товар добавлен в корзину'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteProduct(Product product, bool isGuest, int? userId) async {
+    if (product.id == null) return;
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Удалить товар'),
+            content: Text(
+              'Вы уверены, что хотите удалить "${product.name}"?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Отмена'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Удалить'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+    final success = await context.read<ProductProvider>().deleteProduct(product.id!);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success ? 'Товар удалён' : 'Не удалось удалить товар'),
+        ),
+      );
+    }
   }
 
   @override
@@ -83,7 +259,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
               ],
             ),
           ),
-          // Search Bar
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: TextField(
@@ -100,158 +275,99 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         },
                       )
                     : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
               ),
               onChanged: _onSearchChanged,
             ),
           ),
-          // Products List
           Expanded(
             child: Consumer<ProductProvider>(
-              builder: (context, provider, child) {
-                if (provider.isLoading && provider.products.isEmpty) {
+              builder: (context, productProvider, _) {
+                if (productProvider.isLoading && productProvider.products.isEmpty) {
                   return const LoadingWidget();
                 }
-
-                if (provider.error != null && provider.products.isEmpty) {
+                if (productProvider.error != null && productProvider.products.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          provider.error!,
+                          productProvider.error!,
                           style: const TextStyle(color: AppColors.error),
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
-                          onPressed: () => provider.loadProducts(refresh: true),
+                          onPressed: () => productProvider.loadProducts(refresh: true),
                           child: const Text('Повторить'),
                         ),
                       ],
                     ),
                   );
                 }
-
-                if (provider.products.isEmpty) {
+                if (productProvider.products.isEmpty) {
                   return const EmptyStateWidget(
                     message: AppStrings.emptyState,
                     icon: Icons.inventory_2_outlined,
                   );
                 }
-
-                return Consumer<AuthProvider>(
-                  builder: (context, auth, _) {
-                    final productsToShow = auth.isAdmin
-                        ? provider.products
-                        : provider.products.where((p) => p.quantity > 0).toList();
-
-                    if (productsToShow.isEmpty) {
-                      return const EmptyStateWidget(
-                        message: AppStrings.emptyState,
-                        icon: Icons.inventory_2_outlined,
-                      );
-                    }
-
+                return Consumer2<SaleProvider, AuthProvider>(
+                  builder: (context, saleProvider, auth, _) {
                     return RefreshIndicator(
-                      onRefresh: () => provider.loadProducts(refresh: true),
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        itemCount: productsToShow.length + (provider.isLoading ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index == productsToShow.length) {
-                            return const Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Center(child: CircularProgressIndicator()),
-                            );
-                          }
-                          final product = productsToShow[index];
-                          return Consumer2<SaleProvider, AuthProvider>(
-                            builder: (context, saleProvider, auth, _) {
+                      onRefresh: () {
+                        _clearAvailableQuantitiesCache();
+                        return productProvider.loadProducts(refresh: true);
+                      },
+                      child: Builder(
+                        builder: (context) {
+                          final allProducts = productProvider.products;
+                          // Фильтруем товары в зависимости от роли пользователя
+                          final filteredProducts = allProducts.where((product) {
+                              // Администраторы видят все товары (включая с нулевым количеством)
+                              if (auth.isAdmin) return true;
+
+                              // Для обычных пользователей (клиенты и гости):
+                              // показываем только товары с доступным количеством > 0
+                              // product.quantity уже учитывает резервирования всех пользователей
+                              return product.quantity > 0;
+                            }).toList();
+
+                          return ListView.builder(
+                            controller: _scrollController,
+                            itemCount: filteredProducts.length + (productProvider.isLoading ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              if (index == filteredProducts.length) {
+                                return const Padding(
+                                  padding: EdgeInsets.all(16.0),
+                                  child: Center(child: CircularProgressIndicator()),
+                                );
+                              }
+                              final product = filteredProducts[index];
+                              final availQty = product.quantity;
                               return ProductCard(
                                 product: product,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      ProductDetailScreen(productId: product.id!),
-                                ),
+                                availableQuantity: availQty,
+                                onTap: () {
+                                  if (product.id != null) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ProductDetailScreen(productId: product.id!),
+                                      ),
+                                    );
+                                  }
+                                },
+                                onAddToCart: auth.isAdmin
+                                    ? null
+                                    : () => _addToCart(product, auth.userId, saleProvider, auth.isGuest),
+                                onDelete: auth.isAdmin
+                                    ? () => _deleteProduct(product, auth.isGuest, auth.userId)
+                                    : null,
                               );
                             },
-                            onAddToCart: auth.isAdmin
-                                ? null
-                                : () async {
-                                    try {
-                                      await saleProvider.inventoryService
-                                          .validateSale(product.id!, 1);
-                                      saleProvider.addToCart(
-                                        SaleItem(product: product, quantity: 1),
-                                      );
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                            content: Text('Товар добавлен в корзину'),
-                                          ),
-                                        );
-                                      }
-                                    } catch (e) {
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text(e.toString()),
-                                            backgroundColor: AppColors.error,
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  },
-                            onDelete: auth.isAdmin
-                                ? () async {
-                                    final confirmed = await showDialog<bool>(
-                                          context: context,
-                                          builder: (context) => AlertDialog(
-                                            title: const Text('Удалить товар'),
-                                            content: Text(
-                                              'Вы уверены, что хотите удалить \"${product.name}\"?',
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.of(context).pop(false),
-                                                child: const Text('Отмена'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.of(context).pop(true),
-                                                child: const Text('Удалить'),
-                                              ),
-                                            ],
-                                          ),
-                                        ) ??
-                                        false;
-                                    if (!confirmed) return;
-
-                                    final success = await context
-                                        .read<ProductProvider>()
-                                        .deleteProduct(product.id!);
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(success
-                                              ? 'Товар удалён'
-                                              : 'Не удалось удалить товар'),
-                                        ),
-                                      );
-                                    }
-                                  }
-                                : null,
                           );
                         },
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -271,6 +387,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   builder: (context) => const AddEditProductScreen(),
                 ),
               ).then((_) {
+                _clearAvailableQuantitiesCache();
                 context.read<ProductProvider>().loadProducts(refresh: true);
               });
             },
@@ -280,73 +397,4 @@ class _ProductsScreenState extends State<ProductsScreen> {
       ),
     );
   }
-
-  void _showFilterDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(AppStrings.filter),
-        content: Consumer2<ProductProvider, CategoryProvider>(
-          builder: (context, productProvider, categoryProvider, child) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Category Filter
-                if (categoryProvider.categories.isNotEmpty)
-                  DropdownButtonFormField<int?>(
-                    value: productProvider.selectedCategoryId,
-                    decoration: const InputDecoration(
-                      labelText: AppStrings.category,
-                    ),
-                    items: [
-                      const DropdownMenuItem<int?>(
-                        value: null,
-                        child: Text('Все категории'),
-                      ),
-                      ...categoryProvider.categories.map((category) {
-                        return DropdownMenuItem<int?>(
-                          value: category.id,
-                          child: Text(category.name),
-                        );
-                      }),
-                    ],
-                    onChanged: (value) {
-                      productProvider.filterByCategory(value);
-                      Navigator.pop(context);
-                    },
-                  ),
-                const SizedBox(height: 16),
-                // Sort Options
-                DropdownButtonFormField<String>(
-                  value: productProvider.sortBy,
-                  decoration: const InputDecoration(
-                    labelText: AppStrings.sort,
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'created_at', child: Text('Сначала новые')),
-                    DropdownMenuItem(value: 'name', child: Text('А-Я')),
-                    DropdownMenuItem(value: 'price', child: Text('Цена на увеличение')),
-                    DropdownMenuItem(value: 'quantity', child: Text('Количество на увеличение')),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      productProvider.sortProducts(value);
-                      Navigator.pop(context);
-                    }
-                  },
-                ),
-              ],
-            );
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(AppStrings.close),
-          ),
-        ],
-      ),
-    );
-  }
 }
-

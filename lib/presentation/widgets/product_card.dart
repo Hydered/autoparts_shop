@@ -11,6 +11,7 @@ class ProductCard extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final VoidCallback? onAddToCart;
+  final int? availableQuantity; // Доступное количество (для клиентов/гостей)
 
   const ProductCard({
     super.key,
@@ -19,12 +20,16 @@ class ProductCard extends StatelessWidget {
     this.onEdit,
     this.onDelete,
     this.onAddToCart,
+    this.availableQuantity,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isLowStock = product.isLowStock;
-    final stockColor = product.isOutOfStock
+    // Определяем количество для отображения: доступное для клиентов, реальное для админа
+    final displayQuantity = availableQuantity ?? product.quantity;
+
+    final isLowStock = displayQuantity <= (product.minQuantity);
+    final stockColor = displayQuantity == 0
         ? AppColors.error
         : isLowStock
             ? AppColors.lowStock
@@ -99,7 +104,7 @@ class ProductCard extends StatelessWidget {
                                 border: Border.all(color: stockColor, width: 1),
                               ),
                               child: Text(
-                                '${AppStrings.quantity}: ${product.quantity}',
+                                '${AppStrings.quantity}: $displayQuantity',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,

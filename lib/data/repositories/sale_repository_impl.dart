@@ -58,5 +58,11 @@ class SaleRepositoryImpl implements SaleRepository {
       endDate: endDate,
     );
   }
+
+  @override
+  Future<List<Sale>> getSalesByOrderNumber(String orderNumber, int userId, {bool ignoreClientDeletedHistory = false}) async {
+    final models = await localDataSource.getSalesByOrderNumber(orderNumber, userId, ignoreClientDeletedHistory: ignoreClientDeletedHistory);
+    return models;
+  }
 }
 

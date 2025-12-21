@@ -123,6 +123,9 @@ class SaleModel extends Sale {
       userId: sale.userId,
       customerName: sale.customerName,
       notes: sale.notes,
+      orderNumber: sale.orderNumber,
+      status: sale.status,
+      createdAt: sale.createdAt,
     );
   }
 }

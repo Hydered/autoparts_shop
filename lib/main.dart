@@ -10,9 +10,11 @@ import 'data/datasources/category_local_datasource.dart';
 import 'data/datasources/product_local_datasource.dart';
 import 'data/datasources/sale_local_datasource.dart';
 import 'data/datasources/user_local_datasource.dart';
+import 'data/datasources/cart_local_datasource.dart';
 import 'data/repositories/category_repository_impl.dart';
 import 'data/repositories/product_repository_impl.dart';
 import 'data/repositories/sale_repository_impl.dart';
+import 'data/repositories/cart_repository_impl.dart';
 import 'domain/services/inventory_service.dart';
 import 'presentation/providers/category_provider.dart';
 import 'presentation/providers/product_provider.dart';
@@ -71,14 +73,16 @@ void main() async {
     final productDataSource = ProductLocalDataSource(dbHelper);
     final saleDataSource = SaleLocalDataSource(dbHelper);
     final userDataSource = UserLocalDataSource(dbHelper);
+    final cartDataSource = CartLocalDataSource(dbHelper);
 
     // Initialize repositories
     final categoryRepository = CategoryRepositoryImpl(categoryDataSource);
     final productRepository = ProductRepositoryImpl(productDataSource);
     final saleRepository = SaleRepositoryImpl(saleDataSource);
+    final cartRepository = CartRepositoryImpl(cartDataSource);
 
     // Initialize services
-    final inventoryService = InventoryService(productRepository);
+    final inventoryService = InventoryService(productRepository, cartRepository);
 
     // Категории загружаются из БД, инициализация не требуется
     // await _initializeDefaultCategories(categoryRepository);
@@ -90,12 +94,12 @@ void main() async {
             create: (_) => CategoryProvider(categoryRepository),
           ),
           ChangeNotifierProvider(
-            create: (_) => ProductProvider(productRepository),
+            create: (_) => ProductProvider(productRepository, cartRepository),
           ),
           ChangeNotifierProxyProvider<ProductProvider, SaleProvider>(
-            create: (_) => SaleProvider(saleRepository, inventoryService),
+            create: (_) => SaleProvider(saleRepository, inventoryService, cartRepository, productRepository),
             update: (_, productProvider, saleProvider) {
-              saleProvider ??= SaleProvider(saleRepository, inventoryService);
+              saleProvider ??= SaleProvider(saleRepository, inventoryService, cartRepository, productRepository);
               saleProvider.connectProductProvider(productProvider);
               return saleProvider;
             },

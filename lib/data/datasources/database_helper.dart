@@ -48,7 +48,7 @@ class DatabaseHelper {
     // Открываем существующую БД
     return await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
       onOpen: _ensureSalesColumns,
@@ -183,12 +183,24 @@ class DatabaseHelper {
         FOREIGN KEY (characteristic_id) REFERENCES Characteristics(id) ON DELETE CASCADE
       )
     ''');
+
+    // === Проверяем наличие таблицы CartItems ===
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS CartItems (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        product_id INTEGER NOT NULL,
+        quantity INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (product_id) REFERENCES Products(id) ON DELETE CASCADE
+      )
+    ''');
   }
 
   Future<Database> _createNewDatabase(String path) async {
     return await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -291,6 +303,18 @@ class DatabaseHelper {
       )
     ''');
 
+    // CartItems table (для хранения корзин пользователей)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS CartItems (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        product_id INTEGER NOT NULL,
+        quantity INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (product_id) REFERENCES Products(id) ON DELETE CASCADE
+      )
+    ''');
+
     // Indexes
     await db.execute('CREATE INDEX IF NOT EXISTS idx_products_category_id ON Products(category_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_sales_created_at ON Sales(created_at)');
@@ -300,6 +324,8 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX IF NOT EXISTS idx_pc_product_id ON ProductCharacteristics(product_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_pc_characteristic_id ON ProductCharacteristics(characteristic_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_c_name_unit ON Characteristics(name, unit)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_cartitems_user_id ON CartItems(user_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_cartitems_product_id ON CartItems(product_id)');
 
     // Seed data: создаём админа по умолчанию
     await db.execute('''
@@ -515,6 +541,22 @@ class DatabaseHelper {
       try {
         await db.execute('ALTER TABLE Sales ADD COLUMN Notes TEXT');
       } catch (_) {}
+    }
+
+    if (oldVersion < 10) {
+      // Миграция на версию 10: добавляем таблицу CartItems
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS CartItems (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER,
+          product_id INTEGER NOT NULL,
+          quantity INTEGER NOT NULL,
+          created_at INTEGER NOT NULL,
+          FOREIGN KEY (product_id) REFERENCES Products(id) ON DELETE CASCADE
+        )
+      ''');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_cartitems_user_id ON CartItems(user_id)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_cartitems_product_id ON CartItems(product_id)');
     }
   }
 

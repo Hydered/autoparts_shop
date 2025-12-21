@@ -12,6 +12,7 @@ import '../widgets/loading_widget.dart';
 import 'dart:async';
 import 'package:intl/intl.dart';
 import '../widgets/profile_section.dart';
+import 'receipt_preview_screen.dart';
 
 class NewSaleScreen extends StatefulWidget {
   const NewSaleScreen({super.key});
@@ -33,8 +34,20 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ProductProvider>().loadProducts(refresh: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Очищаем просроченные товары из корзины
+      final cleanedItemsCount = await context.read<SaleProvider>().cleanupExpiredCarts();
+
+      // Показываем уведомление, если были удалены просроченные товары
+      if (cleanedItemsCount > 0 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Удалено $cleanedItemsCount просроченных товаров из вашей корзины (старше 24 часов)'),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+
       _updateFieldsFromProfile();
     });
   }
@@ -111,9 +124,10 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
         }
         return;
       }
-      await inventoryService.validateSale(product.id!, quantity);
-      saleProvider.addToCart(
+      await inventoryService.validateSale(product.id!, quantity, auth.userId);
+      await saleProvider.addToCart(
         SaleItem(product: product, quantity: quantity),
+        auth.userId,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -194,6 +208,9 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
     );
 
     if (success && mounted) {
+      // Обновляем список товаров, чтобы отразить изменения в количестве
+      context.read<ProductProvider>().loadProducts(refresh: true);
+
       // Очищаем поля только для гостей, клиентам оставляем данные
       if (auth.isGuest) {
         _fullNameController.clear();
@@ -201,12 +218,23 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
         _phoneController.clear();
       }
       _notesController.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Покупка успешно завершена'),
-          backgroundColor: AppColors.success,
-        ),
-      );
+
+      // Показываем чек
+      final receipt = saleProvider.lastReceipt;
+      if (receipt != null) {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ReceiptPreviewScreen(receipt: receipt),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Покупка успешно завершена'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
     } else if (mounted && saleProvider.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -425,8 +453,8 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
   }
 
   Widget _buildCart() {
-    return Consumer<SaleProvider>(
-      builder: (context, provider, child) {
+    return Consumer2<SaleProvider, AuthProvider>(
+      builder: (context, provider, auth, child) {
         if (provider.cart.isEmpty) {
           return const EmptyStateWidget(
             message: 'Найдите товары, чтобы добавить в корзину',
@@ -454,7 +482,7 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete),
-                      onPressed: () => provider.removeFromCart(index),
+                      onPressed: () => provider.removeFromCart(index, auth.userId, isGuest: auth.isGuest),
                     ),
                   ],
                 ),
@@ -462,9 +490,9 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
                   icon: const Icon(Icons.remove_circle_outline),
                   onPressed: () {
                     if (item.quantity > 1) {
-                      provider.updateCartItemQuantity(index, item.quantity - 1);
+                      provider.updateCartItemQuantity(index, item.quantity - 1, auth.userId, isGuest: auth.isGuest);
                     } else {
-                      provider.removeFromCart(index);
+                      provider.removeFromCart(index, auth.userId, isGuest: auth.isGuest);
                     }
                   },
                 ),

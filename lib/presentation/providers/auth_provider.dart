@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../domain/entities/user.dart';
 import '../../data/datasources/user_local_datasource.dart';
+import '../providers/sale_provider.dart';
 
 class AuthProvider with ChangeNotifier {
   final UserLocalDataSource userLocalDataSource;
@@ -38,33 +39,51 @@ class AuthProvider with ChangeNotifier {
     return '$surname${firstInitial.isNotEmpty ? ' $firstInitial.' : ''}';
   }
 
+  /// Выполняет вход пользователя в систему
+  /// Поддерживает специальный вход для администратора и обычную аутентификацию пользователей
+  ///
+  /// @param email - email пользователя
+  /// @param password - пароль пользователя
   Future<void> login(String email, String password) async {
+    // Специальный вход для администратора (без проверки в БД)
     if (email == 'admin@admin.ru' && password == 'admin') {
-    _role = UserRole.admin;
-    _fullName = 'Админ';
-    _email = email;
-    _userId = 0;
-    _phone = null;
-    _address = null;
-    notifyListeners();
-    return;
+      _role = UserRole.admin;
+      _fullName = 'Админ';
+      _email = email;
+      _userId = 0; // Фиксированный ID для админа
+      _phone = null;
+      _address = null;
+      notifyListeners();
+      return;
     }
 
+    // Обычная аутентификация через базу данных
     final userMap =
         await userLocalDataSource.getUserByEmailAndPassword(email, password);
     if (userMap == null) {
       throw Exception('Неверный email или пароль');
     }
 
+    // Устанавливаем данные пользователя из базы данных
     _role = _mapRole(userMap['Role'] as String?);
     _fullName = userMap['FullName'] as String?;
     _phone = userMap['Phone'] as String?;
     _address = userMap['Address'] as String?;
     _userId = userMap['Id'] as int?;
     _email = userMap['Email'] as String?;
+
+    // Уведомляем слушателей об изменении состояния аутентификации
     notifyListeners();
   }
 
+  /// Регистрирует нового клиента в системе
+  /// Создает учетную запись пользователя и автоматически входит в систему
+  ///
+  /// @param fullName - полное имя пользователя
+  /// @param phone - номер телефона
+  /// @param address - адрес доставки
+  /// @param email - email (уникальный)
+  /// @param password - пароль
   Future<void> registerClient({
     required String fullName,
     required String phone,
@@ -72,32 +91,39 @@ class AuthProvider with ChangeNotifier {
     required String email,
     required String password,
   }) async {
+    // Проверяем, что email не зарезервирован для администратора
     if (email == 'admin@admin.ru') {
       throw Exception('Этот email зарезервирован для администратора');
     }
 
+    // Проверяем, что пользователь с таким email еще не зарегистрирован
     final existing = await userLocalDataSource.getUserByEmail(email);
     if (existing != null) {
       throw Exception('Пользователь с таким email уже зарегистрирован');
     }
 
+    // Создаем нового пользователя в базе данных
     await userLocalDataSource.insertUser(
       fullName: fullName,
       phone: phone,
       address: address,
       email: email,
       password: password,
-      role: 'client',
+      role: 'client', // Роль клиента
     );
 
+    // Автоматически входим в систему от имени нового пользователя
     _role = UserRole.client;
     _fullName = fullName;
     _phone = phone;
     _address = address;
-    // Получаем ID только что созданного пользователя
+
+    // Получаем ID только что созданного пользователя из базы данных
     final user = await userLocalDataSource.getUserByEmail(email);
     _userId = user?['Id'] as int?;
     _email = email;
+
+    // Уведомляем слушателей об успешной регистрации и входе
     notifyListeners();
   }
 
@@ -160,6 +186,22 @@ class AuthProvider with ChangeNotifier {
     _address = null;
     _userId = null;
     _email = null;
+    notifyListeners();
+  }
+
+  /// Выполняет выход из системы с очисткой корзины
+  /// Гарантирует, что при следующем входе корзина будет пустой
+  ///
+  /// @param saleProvider - провайдер корзины для очистки
+  Future<void> logoutWithCartClear(SaleProvider saleProvider) async {
+    logout(); // Сбрасываем данные пользователя
+    // Очищаем корзину при выходе (null для гостей)
+    await saleProvider.clearCart(null);
+  }
+
+  // Метод для уведомления других провайдеров об изменении аутентификации
+  // Должен вызываться после login/logout для синхронизации состояния
+  void notifyAuthChanged() {
     notifyListeners();
   }
 

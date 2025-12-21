@@ -5,14 +5,15 @@ import '../../core/constants/app_strings.dart';
 import '../../domain/entities/user.dart';
 import '../providers/home_provider.dart';
 import '../providers/auth_provider.dart';
-import 'products_screen.dart';
-import 'new_sale_screen.dart';
-import 'sales_history_screen.dart';
+import '../screens/products_screen.dart';
+import '../screens/new_sale_screen.dart';
+import '../screens/sales_history_screen.dart';
 import 'auth_screen.dart';
 import 'profile_edit_screen.dart';
 import '../widgets/empty_state_widget.dart';
 import '../widgets/loading_widget.dart';
 import '../providers/product_provider.dart';
+import '../providers/sale_provider.dart';
 import 'package:intl/intl.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -29,10 +30,24 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
         final auth = context.read<AuthProvider>();
         _previousRole = auth.role;
+
+        // Очищаем просроченные товары из корзин при запуске приложения
+        final cleanedItemsCount = await context.read<SaleProvider>().cleanupExpiredCarts();
+
+        // Показываем уведомление, если были удалены просроченные товары
+        if (cleanedItemsCount > 0 && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Удалено $cleanedItemsCount просроченных товаров из корзин (старше 24 часов)'),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+
         context.read<HomeProvider>().loadHomeData();
       }
     });
@@ -239,7 +254,8 @@ class HomeTab extends StatelessWidget {
                       }
                     }
                   } else if (value == 'logout') {
-                    auth.logout();
+                    final saleProvider = context.read<SaleProvider>();
+                    await auth.logoutWithCartClear(saleProvider);
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Вы вышли из аккаунта')),
@@ -596,4 +612,3 @@ class HomeTab extends StatelessWidget {
     }
   }
 }
-

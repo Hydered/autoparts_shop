@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
 import '../../domain/entities/sale.dart';
+import '../../domain/entities/receipt.dart';
 import '../providers/sale_provider.dart';
 import '../providers/product_provider.dart';
 import '../providers/auth_provider.dart';
@@ -11,6 +12,7 @@ import '../widgets/empty_state_widget.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/profile_section.dart';
 import '../../core/utils/date_utils.dart' as app_date_utils;
+import 'receipt_preview_screen.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -28,6 +30,9 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
   DateTime? _filterEndDate;
   int? _selectedClientId; // Для отслеживания выбранного клиента
 
+  // Кэш сгенерированных чеков для оптимизации
+  final Map<String, Receipt> _receiptsCache = {};
+
   @override
   void initState() {
     super.initState();
@@ -44,20 +49,6 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       if (sale.userId != null) {
         grouped.putIfAbsent(sale.userId!, () => []).add(sale);
       }
-    }
-    return grouped;
-  }
-
-  // Группировка заказов клиента по дате
-  Map<DateTime, List<Sale>> _groupSalesByDate(List<Sale> sales) {
-    final Map<DateTime, List<Sale>> grouped = {};
-    for (final sale in sales) {
-      final date = DateTime(
-        sale.saleDate.year,
-        sale.saleDate.month,
-        sale.saleDate.day,
-      );
-      grouped.putIfAbsent(date, () => []).add(sale);
     }
     return grouped;
   }
@@ -182,6 +173,94 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Ошибка экспорта PDF: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportReceiptToPDF(Receipt receipt) async {
+    try {
+      final pdf = pw.Document();
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          build: (pw.Context context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  receipt.companyName,
+                  style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
+                ),
+                pw.Text('Горячая линия: ${receipt.hotline}'),
+                pw.Text('Владелец: ${receipt.owner}'),
+                pw.SizedBox(height: 15),
+                pw.Center(child: pw.Text('ДОБРО ПОЖАЛОВАТЬ!', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                pw.Center(child: pw.Text('КАССОВЫЙ ЧЕК', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                pw.SizedBox(height: 15),
+                pw.Text(
+                  'ЧЕК №${receipt.orderNumber ?? 'Н/Д'}',
+                  style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                ),
+                pw.Text('Дата: ${DateFormat('dd.MM.yyyy HH:mm').format(receipt.dateTime)}'),
+                pw.Text('Кассир: ${receipt.cashier}'),
+                pw.Text('Покупатель: ${receipt.customerName}'),
+                pw.SizedBox(height: 10),
+                pw.Text('Товары:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                pw.SizedBox(height: 10),
+                pw.Table(
+                  children: [
+                    pw.TableRow(
+                      children: [
+                        pw.Text('Наименование', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        pw.Text('Кол-во', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        pw.Text('Цена', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        pw.Text('Сумма', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                      ],
+                    ),
+                    ...receipt.items.map((item) => pw.TableRow(
+                      children: [
+                        pw.Text(item.productName),
+                        pw.Text(item.quantity.toString()),
+                        pw.Text(NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(item.unitPrice)),
+                        pw.Text(NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(item.total)),
+                      ],
+                    )),
+                  ],
+                ),
+                pw.SizedBox(height: 10),
+                pw.Text('Итого: ${NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(receipt.total)}'),
+                pw.Text('НДС ${receipt.vatRate}%: ${NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(receipt.vatAmount)}'),
+                pw.Text('Способ оплаты: ${receipt.paymentMethod}'),
+                if (receipt.notes?.isNotEmpty ?? false) ...[
+                  pw.SizedBox(height: 10),
+                  pw.Text('Заметка: ${receipt.notes}'),
+                ],
+                pw.SizedBox(height: 20),
+                pw.Text('Спасибо за покупку!', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+              ],
+            );
+          },
+        ),
+      );
+
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/receipt_${receipt.orderNumber ?? 'unknown'}_${DateTime.now().millisecondsSinceEpoch}.pdf');
+      await file.writeAsBytes(await pdf.save());
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Чек сохранён: ${file.path}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка экспорта чека: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -445,11 +524,18 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     );
   }
 
-  // Виджет для отображения заказов клиента, сгруппированных по дате
+  // Виджет для отображения заказов клиента, сгруппированных по номеру заказа
   Widget _buildClientOrdersView(int userId, List<Sale> sales) {
-    final groupedByDate = _groupSalesByDate(sales);
-    final sortedDates = groupedByDate.keys.toList()..sort((a, b) => b.compareTo(a));
-
+    // Группируем продажи по orderNumber
+    final Map<String, List<Sale>> orderGroups = {};
+    for (final sale in sales) {
+      if (sale.orderNumber != null && sale.orderNumber!.isNotEmpty) {
+        orderGroups.putIfAbsent(sale.orderNumber!, () => []).add(sale);
+      }
+    }
+    // Сортируем по дате (по убыванию)
+    final sortedOrders = orderGroups.values.toList()
+      ..sort((a, b) => b.first.saleDate.compareTo(a.first.saleDate));
     return Column(
       children: [
         // Кнопка "Назад"
@@ -483,14 +569,14 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
             ],
           ),
         ),
-        // Список заказов по датам
+        // Список заказов по orderNumber
         Expanded(
           child: ListView.builder(
-            itemCount: sortedDates.length,
-            itemBuilder: (context, dateIndex) {
-              final date = sortedDates[dateIndex];
-              final dateSales = groupedByDate[date]!;
-              final dateTotal = dateSales.fold<double>(
+            itemCount: sortedOrders.length,
+            itemBuilder: (context, orderIndex) {
+              final orderSales = sortedOrders[orderIndex];
+              final firstSale = orderSales.first;
+              final orderTotal = orderSales.fold<double>(
                 0.0,
                 (sum, sale) => sum + sale.totalPrice,
               );
@@ -498,14 +584,116 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: ExpansionTile(
-                  title: Text(
-                    app_date_utils.DateUtils.formatDateDisplay(date),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  title: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Дата: ${app_date_utils.DateUtils.formatDateDisplay(firstSale.saleDate)}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                Text(
+                                  'ID продажи: ${(firstSale.orderNumber ?? '').isNotEmpty ? firstSale.orderNumber : (firstSale.id?.toString() ?? '—')}',
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                          IconButton(
+                            icon: const Icon(Icons.visibility, color: AppColors.primary),
+                            onPressed: () async {
+final orderNumber = firstSale.orderNumber ?? '';
+                                  if (orderNumber.isNotEmpty) {
+                                    // Используем кэш чеков
+                                    Receipt? receipt = _receiptsCache[orderNumber];
+                                    if (receipt == null) {
+                                      receipt = await context.read<SaleProvider>().generateReceiptForOrder(
+                                        orderNumber,
+                                        userId,
+                                        ignoreClientDeletedHistory: true,
+                                      );
+                                      if (receipt != null) {
+                                        _receiptsCache[orderNumber] = receipt;
+                                      }
+                                    }
+                                    if (receipt != null) {
+                                      await Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => ReceiptPreviewScreen(receipt: receipt!),
+                                        ),
+                                      );
+                                    } else {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Не удалось сгенерировать чек')),
+                                        );
+                                      }
+                                    }
+                                  }
+                            },
+                            tooltip: 'Посмотреть чек',
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.download, color: AppColors.primary),
+                            onPressed: () async {
+final orderNumber = firstSale.orderNumber ?? '';
+                                  if (orderNumber.isNotEmpty) {
+                                    // Используем кэш чеков
+                                    Receipt? receipt = _receiptsCache[orderNumber];
+                                    if (receipt == null) {
+                                      receipt = await context.read<SaleProvider>().generateReceiptForOrder(
+                                        orderNumber,
+                                        userId,
+                                        ignoreClientDeletedHistory: true,
+                                      );
+                                      if (receipt != null) {
+                                        _receiptsCache[orderNumber] = receipt;
+                                      }
+                                    }
+                                    if (receipt != null) {
+                                      await _exportReceiptToPDF(receipt);
+                                    } else {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Не удалось сгенерировать чек')),
+                                        );
+                                      }
+                                    }
+                                  }
+                            },
+                            tooltip: 'Скачать чек',
+                          ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                   subtitle: Text(
-                    '${dateSales.length} товар(ов) | ${NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(dateTotal)}',
+                    '${orderSales.length} товар(ов) | ${NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(orderTotal)}',
                   ),
-                  children: dateSales.map((sale) {
+                  children: [
+                    if ((firstSale.notes ?? '').trim().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8.0, right: 8.0, top: 6, bottom: 2),
+                        child: Text(
+                          'Заметка: ${firstSale.notes}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontStyle: FontStyle.italic,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ...orderSales.map((sale) {
                     return FutureBuilder(
                       future: context.read<ProductProvider>().getProductById(sale.productId),
                       builder: (context, snapshot) {
@@ -521,16 +709,6 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                               Text(
                                 '${sale.quantity} шт. x ${NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(sale.unitPrice)} = ${NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(sale.totalPrice)}',
                               ),
-                              if ((sale.notes ?? '').trim().isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Заметка: ${sale.notes}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ],
                             ],
                           ),
                           trailing: Text(
@@ -545,7 +723,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                       },
                     );
                   }).toList(),
-                ),
+                ]),
               );
             },
           ),
@@ -556,53 +734,151 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
 
   // Виджет для отображения списка покупок клиента
   Widget _buildClientView(List<Sale> sales) {
+    // Группировка по orderNumber (одна карта — один заказ, все товары внутри)
+    final Map<String, List<Sale>> orderGroups = {};
+    for (final sale in sales) {
+      if (sale.orderNumber != null && sale.orderNumber!.isNotEmpty) {
+      orderGroups.putIfAbsent(sale.orderNumber!, () => []).add(sale);
+    }
+    }
+    // Сортировка по дате (по убыванию)
+    final sortedOrders = orderGroups.values.toList()
+      ..sort((a, b) => b.first.saleDate.compareTo(a.first.saleDate));
     return ListView.builder(
-      itemCount: sales.length,
-      itemBuilder: (context, index) {
-        final sale = sales[index];
-        return FutureBuilder(
-          future: context.read<ProductProvider>().getProductById(sale.productId),
-          builder: (context, snapshot) {
-            final product = snapshot.data;
-            return Card(
-              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: ListTile(
-                title: Text(
-                  product?.name ?? 'Product ID: ${sale.productId}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      itemCount: sortedOrders.length,
+      itemBuilder: (context, orderIdx) {
+        final orderSales = sortedOrders[orderIdx];
+        final firstSale = orderSales.first;
+        final totalAmount = orderSales.fold<double>(0.0, (sum, s) => sum + s.totalPrice);
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: ExpansionTile(
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      '${sale.quantity} шт. x ${NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(sale.unitPrice)} = ${NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(sale.totalPrice)}',
-                      style: const TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      app_date_utils.DateUtils.formatDateTime(sale.saleDate),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Дата: ${app_date_utils.DateUtils.formatDateTime(firstSale.saleDate)}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'ID продажи: ${(firstSale.orderNumber ?? '').isNotEmpty ? firstSale.orderNumber : (firstSale.id?.toString() ?? '—')}',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey),
+                          ),
+                          Text(
+                            'Сумма заказа: ${NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(totalAmount)}',
+                            style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black54),
+                          ),
+                        ],
                       ),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.visibility, color: AppColors.primary),
+                          onPressed: () async {
+                            final orderNumber = firstSale.orderNumber ?? '';
+                            if (orderNumber.isNotEmpty) {
+                              // Используем кэш чеков
+                              Receipt? receipt = _receiptsCache[orderNumber];
+                              if (receipt == null) {
+                                final auth = context.read<AuthProvider>();
+                                receipt = await context.read<SaleProvider>().generateReceiptForOrder(
+                                  orderNumber,
+                                  auth.userId!,
+                                  ignoreClientDeletedHistory: auth.isAdmin,
+                                );
+                                if (receipt != null) {
+                                  _receiptsCache[orderNumber] = receipt;
+                                }
+                              }
+                              if (receipt != null) {
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => ReceiptPreviewScreen(receipt: receipt!),
+                                  ),
+                                );
+                              } else {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Не удалось сгенерировать чек')),
+                                  );
+                                }
+                              }
+                            }
+                          },
+                          tooltip: 'Посмотреть чек',
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.download, color: AppColors.primary),
+                          onPressed: () async {
+                            final orderNumber = firstSale.orderNumber ?? '';
+                            if (orderNumber.isNotEmpty) {
+                              // Используем кэш чеков
+                              Receipt? receipt = _receiptsCache[orderNumber];
+                              if (receipt == null) {
+                                final auth = context.read<AuthProvider>();
+                                receipt = await context.read<SaleProvider>().generateReceiptForOrder(
+                                  orderNumber,
+                                  auth.userId!,
+                                  ignoreClientDeletedHistory: auth.isAdmin,
+                                );
+                                if (receipt != null) {
+                                  _receiptsCache[orderNumber] = receipt;
+                                }
+                              }
+                              if (receipt != null) {
+                                await _exportReceiptToPDF(receipt);
+                              } else {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Не удалось сгенерировать чек')),
+                                  );
+                                }
+                              }
+                            }
+                          },
+                          tooltip: 'Скачать чек',
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                trailing: Text(
-                  NumberFormat.currency(locale: 'ru_RU', symbol: '₽')
-                      .format(sale.totalPrice),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
+              ],
+            ),
+            children: orderSales.map((sale) => FutureBuilder(
+              future: context.read<ProductProvider>().getProductById(sale.productId),
+              builder: (context, snapshot) {
+                final product = snapshot.data;
+                return ListTile(
+                  title: Text(
+                    product?.name ?? 'Product ID: ${sale.productId}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                ),
-              ),
-            );
-          },
+                  subtitle: Text(
+                    '${sale.quantity} шт. x ${NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(sale.unitPrice)} = ${NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(sale.totalPrice)}',
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  trailing: Text(
+                    NumberFormat.currency(locale: 'ru_RU', symbol: '₽')
+                        .format(sale.totalPrice),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                );
+              },
+            )).toList(),
+          ),
         );
       },
     );
   }
 }
-

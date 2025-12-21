@@ -159,4 +159,3 @@ UserRole? _role;
     );
   }
 }
-

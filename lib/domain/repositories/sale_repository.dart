@@ -15,5 +15,6 @@ abstract class SaleRepository {
   Future<double> getDailySalesTotal(DateTime date);
   Future<List<Map<String, dynamic>>> getBestSellingProducts({int limit = 3});
   Future<int> getSalesCount({DateTime? startDate, DateTime? endDate});
+  Future<List<Sale>> getSalesByOrderNumber(String orderNumber, int userId, {bool ignoreClientDeletedHistory = false});
 }
 

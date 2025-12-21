@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import 'package:flutter/services.dart';
+import '../screens/phone_input_mask.dart';
+import '../utils/russian_phone_operator.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -74,15 +77,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return null;
   }
 
-  String? _phoneValidator(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Телефон обязателен';
-    }
-    if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
-      return 'Только цифры';
-    }
-    return null;
-  }
 
   String? _addressValidator(String? value) {
     if (value == null || value.trim().isEmpty) {
@@ -138,11 +132,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 validator: _fullNameValidator,
               ),
               const SizedBox(height: 8),
-              TextFormField(
-                controller: _phoneController,
-                decoration: const InputDecoration(labelText: 'Телефон'),
-                validator: _phoneValidator,
-                keyboardType: TextInputType.phone,
+              Builder(
+                builder: (context) {
+                  final detectedOperator = detectRussianOperator(_phoneController.text);
+                  return TextFormField(
+                    controller: _phoneController,
+                    decoration: InputDecoration(
+                      labelText: 'Телефон',
+                      hintText: '+7 (000) 000-00-00',
+                      suffixIcon: detectedOperator != null
+                          ? Tooltip(
+                              message: detectedOperator,
+                              child: Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Text(detectedOperator,
+                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                              ),
+                            )
+                          : null,
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Телефон обязателен';
+                      }
+                      final unmasked = phoneMaskFormatter.getUnmaskedText();
+                      if (unmasked.length != 11 || !unmasked.startsWith('7')) {
+                        return 'Укажите номер полностью +7 (000) 000-00-00';
+                      }
+                      return null;
+                    },
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [
+  FilteringTextInputFormatter.digitsOnly,
+  phoneMaskFormatter,
+],
+                    onChanged: (text) { setState(() {}); },
+                  );
+                },
               ),
               const SizedBox(height: 8),
               TextFormField(

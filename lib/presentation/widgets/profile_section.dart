@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/sale_provider.dart';
 import '../screens/auth_screen.dart';
 import '../screens/profile_edit_screen.dart';
 
@@ -58,7 +59,12 @@ class ProfileSection extends StatelessWidget {
                       ),
                     );
                   } else if (value == 'logout') {
-                    auth.logout();
+                    // Выполняем выход с обязательной очисткой корзины
+                    // Это гарантирует, что при следующем входе корзина будет пустой
+                    // и товары не перейдут к другому пользователю
+                    final saleProvider = context.read<SaleProvider>();
+                    await auth.logoutWithCartClear(saleProvider);
+
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Вы вышли из аккаунта')),
@@ -103,4 +109,3 @@ class ProfileSection extends StatelessWidget {
     );
   }
 }
-
