@@ -141,24 +141,36 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   );
                 }
 
-                return RefreshIndicator(
-                  onRefresh: () => provider.loadProducts(refresh: true),
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    itemCount: provider.products.length + (provider.isLoading ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index == provider.products.length) {
-                        return const Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Center(child: CircularProgressIndicator()),
-                        );
-                      }
+                return Consumer<AuthProvider>(
+                  builder: (context, auth, _) {
+                    final productsToShow = auth.isAdmin
+                        ? provider.products
+                        : provider.products.where((p) => p.quantity > 0).toList();
 
-                      final product = provider.products[index];
-                      return Consumer2<SaleProvider, AuthProvider>(
-                        builder: (context, saleProvider, auth, _) {
-                          return ProductCard(
-                            product: product,
+                    if (productsToShow.isEmpty) {
+                      return const EmptyStateWidget(
+                        message: AppStrings.emptyState,
+                        icon: Icons.inventory_2_outlined,
+                      );
+                    }
+
+                    return RefreshIndicator(
+                      onRefresh: () => provider.loadProducts(refresh: true),
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        itemCount: productsToShow.length + (provider.isLoading ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (index == productsToShow.length) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
+                          final product = productsToShow[index];
+                          return Consumer2<SaleProvider, AuthProvider>(
+                            builder: (context, saleProvider, auth, _) {
+                              return ProductCard(
+                                product: product,
                             onTap: () {
                               Navigator.push(
                                 context,
