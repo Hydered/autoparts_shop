@@ -20,13 +20,12 @@ class ProductLocalDataSource {
       final db = await dbHelper.database;
       // Количество берём из поля Products.stock или из Stock.Quantity
       var query = '''
-        SELECT 
+        SELECT
           p.*,
           COALESCE(p.stock, s.Quantity, 0) as quantity,
-          pi.image as image_path
-        FROM Products p 
+          p.image_url as image_path
+        FROM Products p
         LEFT JOIN Stock s ON p.id = s.ProductId
-        LEFT JOIN ProductImages pi ON pi.product_id = p.id AND pi.is_main = 1
         WHERE 1=1
       ''';
       final List<dynamic> whereArgs = [];
@@ -80,14 +79,12 @@ class ProductLocalDataSource {
     try {
       final db = await dbHelper.database;
       final maps = await db.rawQuery('''
-        SELECT 
+        SELECT
           p.*,
           COALESCE(p.stock, s.Quantity, 0) as quantity,
-          pi.image as image_path
-        FROM Products p 
-        LEFT JOIN Stock s ON p.id = s.ProductId 
-        LEFT JOIN ProductImages pi 
-          ON pi.product_id = p.id AND pi.is_main = 1
+          p.image_url as image_path
+        FROM Products p
+        LEFT JOIN Stock s ON p.id = s.ProductId
         WHERE p.id = ?
       ''', [id]);
       if (maps.isEmpty) return null;
@@ -101,14 +98,12 @@ class ProductLocalDataSource {
     try {
       final db = await dbHelper.database;
       final maps = await db.rawQuery('''
-        SELECT 
+        SELECT
           p.*,
           COALESCE(p.stock, s.Quantity, 0) as quantity,
-          pi.image as image_path
-        FROM Products p 
-        LEFT JOIN Stock s ON p.id = s.ProductId 
-        LEFT JOIN ProductImages pi 
-          ON pi.product_id = p.id AND pi.is_main = 1
+          p.image_url as image_path
+        FROM Products p
+        LEFT JOIN Stock s ON p.id = s.ProductId
         WHERE p.sku = ?
       ''', [sku]);
       if (maps.isEmpty) return null;
@@ -173,14 +168,12 @@ class ProductLocalDataSource {
     try {
       final db = await dbHelper.database;
       final maps = await db.rawQuery('''
-        SELECT 
+        SELECT
           p.*,
           COALESCE(p.stock, s.Quantity, 0) as quantity,
-          pi.image as image_path
-        FROM Products p 
-        LEFT JOIN Stock s ON p.id = s.ProductId 
-        LEFT JOIN ProductImages pi 
-          ON pi.product_id = p.id AND pi.is_main = 1
+          p.image_url as image_path
+        FROM Products p
+        LEFT JOIN Stock s ON p.id = s.ProductId
         WHERE COALESCE(p.stock, s.Quantity, 0) <= 5
         ORDER BY quantity ASC
       ''');

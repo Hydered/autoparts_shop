@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import '../providers/auth_provider.dart';
 import 'package:flutter/services.dart';
-import '../screens/phone_input_mask.dart';
 import '../utils/russian_phone_operator.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -20,9 +20,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _passwordRepeatController = TextEditingController();
+  late final MaskTextInputFormatter _phoneMaskFormatter;
   bool _obscurePass = true;
   bool _obscurePassRepeat = true;
   String? _formError;
+
+  @override
+  void initState() {
+    super.initState();
+    _phoneMaskFormatter = MaskTextInputFormatter(
+      mask: '+7 (###) ###-##-##',
+      filter: {"#": RegExp(r'[0-9]')},
+      type: MaskAutoCompletionType.lazy,
+    );
+    print('Phone mask formatter initialized'); // Debug
+  }
 
   @override
   void dispose() {
@@ -44,7 +56,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   String? _emailValidator(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Email обязательный';
+      return 'Обязательное поле';
     }
     final emailReg = RegExp(r'^[\w\.-]+@[\w\.-]+\.[a-zA-Z]{2,}');
     if (!emailReg.hasMatch(value)) {
@@ -72,7 +84,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   String? _fullNameValidator(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'ФИО обязательно';
+      return 'Обязательное поле';
     }
     return null;
   }
@@ -80,14 +92,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   String? _addressValidator(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Адрес обязателен';
+      return 'Обязательное поле';
     }
     return null;
   }
 
   Future<void> _onRegister(BuildContext context) async {
     setState(() => _formError = null);
-    if (_formKey.currentState?.validate() != true) return;
+
+    // Проверяем валидацию формы
+    final isValid = _formKey.currentState?.validate() ?? false;
+    print('Form validation result: $isValid'); // Debug
+
+    if (!isValid) {
+      print('Form validation failed'); // Debug
+      return;
+    }
     final auth = context.read<AuthProvider>();
     try {
       final email = _emailController.text.trim();
@@ -152,21 +172,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           : null,
                     ),
                     validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
+                      if (value == null || value.isEmpty) {
                         return 'Телефон обязателен';
                       }
-                      final unmasked = phoneMaskFormatter.getUnmaskedText();
-                      if (unmasked.length != 11 || !unmasked.startsWith('7')) {
+
+                      // Проверяем что номер введен полностью в формате +7 (XXX) XXX-XX-XX
+                      final phoneRegex = RegExp(r'^\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}$');
+                      if (!phoneRegex.hasMatch(value)) {
                         return 'Укажите номер полностью +7 (000) 000-00-00';
                       }
                       return null;
                     },
                     keyboardType: TextInputType.phone,
                     inputFormatters: [
-  FilteringTextInputFormatter.digitsOnly,
-  phoneMaskFormatter,
-],
-                    onChanged: (text) { setState(() {}); },
+                      _phoneMaskFormatter,
+                    ],
+                    onChanged: (text) {
+                      setState(() {});
+                    },
                   );
                 },
               ),
