@@ -5,7 +5,6 @@ import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import '../../core/constants/app_strings.dart';
 import '../providers/auth_provider.dart';
 import '../../domain/entities/user.dart';
-import '../utils/russian_phone_operator.dart';
 
 class ProfileEditScreen extends StatefulWidget {
   const ProfileEditScreen({super.key});
@@ -29,7 +28,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   void initState() {
     super.initState();
     _phoneMaskFormatter = MaskTextInputFormatter(
-      mask: '+7 (###) ###-##-##',
+      mask: '+# (###) ###-##-##',
       filter: {"#": RegExp(r'[0-9]')},
       type: MaskAutoCompletionType.lazy,
     );
@@ -94,44 +93,39 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 validator: (v) => v == null || v.trim().isEmpty ? 'Обязательное поле' : null,
               ),
               const SizedBox(height: 8),
-              Builder(
-                builder: (context) {
-                  final detectedOperator = detectRussianOperator(_phoneController.text);
-                  return TextFormField(
-                    controller: _phoneController,
-                    decoration: InputDecoration(
-                      labelText: 'Телефон',
-                      hintText: '+7 (000) 000-00-00',
-                      suffixIcon: detectedOperator != null
-                          ? Tooltip(
-                              message: detectedOperator,
-                              child: Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Text(detectedOperator,
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                              ),
-                            )
-                          : null,
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Телефон обязателен';
-                      }
-                      // Проверяем что номер введен полностью в формате +7 (XXX) XXX-XX-XX
-                      final phoneRegex = RegExp(r'^\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}$');
-                      if (!phoneRegex.hasMatch(value.trim())) {
-                        return 'Укажите номер полностью +7 (000) 000-00-00';
-                      }
-                      return null;
-                    },
-                    keyboardType: TextInputType.phone,
-                    inputFormatters: [
-                      _phoneMaskFormatter,
-                    ],
-                    onChanged: (text) {
-                      setState(() {});
-                    },
-                  );
+              TextFormField(
+                controller: _phoneController,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                decoration: const InputDecoration(
+                  labelText: 'Телефон',
+                  hintText: '+X (XXX) XXX-XX-XX',
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Телефон обязателен';
+                  }
+
+                  // Проверяем что введены только цифры и допустимые символы
+                  final phoneRegex = RegExp(r'^[\d\s\-\+\(\)]+$');
+                  if (!phoneRegex.hasMatch(value.trim())) {
+                    return 'Телефон должен содержать только цифры';
+                  }
+
+                  // Проверяем минимальную длину (без учета форматирования)
+                  final digitsOnly = value.replaceAll(RegExp(r'[^\d]'), '');
+                  if (digitsOnly.length < 10) {
+                    return 'Введите полный номер телефона (минимум 10 цифр)';
+                  }
+
+                  return null;
+                },
+                keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
+                  _phoneMaskFormatter,
+                ],
+                onChanged: (text) {
+                  setState(() {});
                 },
               ),
               const SizedBox(height: 8),

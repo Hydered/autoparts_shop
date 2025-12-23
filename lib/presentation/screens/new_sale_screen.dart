@@ -209,7 +209,12 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
 
     if (success && mounted) {
       // Обновляем список товаров, чтобы отразить изменения в количестве
-      context.read<ProductProvider>().loadProducts(refresh: true);
+      final saleProvider = context.read<SaleProvider>();
+      context.read<ProductProvider>().loadProducts(
+        refresh: true,
+        saleProvider: saleProvider,
+        currentUserId: auth.userId
+      );
 
       // Очищаем поля только для гостей, клиентам оставляем данные
       if (auth.isGuest) {

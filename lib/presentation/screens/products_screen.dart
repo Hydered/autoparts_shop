@@ -39,9 +39,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
       final productProvider = context.read<ProductProvider>();
       final saleProvider = context.read<SaleProvider>();
       if (productProvider.products.isEmpty) {
-        await productProvider.loadProducts(refresh: true);
-        // После загрузки применяем резервирования из корзины
-        await saleProvider.applyCartReservationsToProducts(currentUserId: auth.userId);
+        await productProvider.loadProducts(
+          refresh: true,
+          saleProvider: saleProvider,
+          currentUserId: auth.userId
+        );
       } else {
         // Если продукты уже загружены, применяем резервирования
         await saleProvider.applyCartReservationsToProducts(currentUserId: auth.userId);
@@ -60,7 +62,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
   void _onScroll() {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent * 0.9) {
-      context.read<ProductProvider>().loadProducts();
+      final saleProvider = context.read<SaleProvider>();
+      final auth = context.read<AuthProvider>();
+      context.read<ProductProvider>().loadProducts(
+        saleProvider: saleProvider,
+        currentUserId: auth.userId
+      );
     }
   }
 
@@ -114,7 +121,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       ],
                       onChanged: (value) {
                         productProvider.setSelectedCategoryId(value);
-                        productProvider.loadProducts(refresh: true);
+                        final saleProvider = Provider.of<SaleProvider>(context, listen: false);
+                        final auth = Provider.of<AuthProvider>(context, listen: false);
+                        productProvider.loadProducts(
+                          refresh: true,
+                          saleProvider: saleProvider,
+                          currentUserId: auth.userId
+                        );
                         Navigator.of(context).pop();
                       },
                     ),
@@ -145,7 +158,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     onChanged: (value) {
                       if (value != null) {
                         productProvider.setSortBy(value);
-                        productProvider.loadProducts(refresh: true);
+                        final saleProvider = Provider.of<SaleProvider>(context, listen: false);
+                        final auth = Provider.of<AuthProvider>(context, listen: false);
+                        productProvider.loadProducts(
+                          refresh: true,
+                          saleProvider: saleProvider,
+                          currentUserId: auth.userId
+                        );
                         Navigator.of(context).pop();
                       }
                     },
@@ -159,7 +178,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
               child: const Text('Очистить фильтры'),
               onPressed: () {
                 context.read<ProductProvider>().clearFilters();
-                context.read<ProductProvider>().loadProducts(refresh: true);
+                final saleProvider = context.read<SaleProvider>();
+                final auth = context.read<AuthProvider>();
+                context.read<ProductProvider>().loadProducts(
+                  refresh: true,
+                  saleProvider: saleProvider,
+                  currentUserId: auth.userId
+                );
                 Navigator.of(context).pop();
               },
             ),
@@ -296,7 +321,15 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
-                          onPressed: () => productProvider.loadProducts(refresh: true),
+                          onPressed: () {
+                            final saleProvider = Provider.of<SaleProvider>(context, listen: false);
+                            final auth = Provider.of<AuthProvider>(context, listen: false);
+                            productProvider.loadProducts(
+                              refresh: true,
+                              saleProvider: saleProvider,
+                              currentUserId: auth.userId
+                            );
+                          },
                           child: const Text('Повторить'),
                         ),
                       ],
@@ -314,7 +347,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     return RefreshIndicator(
                       onRefresh: () {
                         _clearAvailableQuantitiesCache();
-                        return productProvider.loadProducts(refresh: true);
+                        return productProvider.loadProducts(
+                          refresh: true,
+                          saleProvider: saleProvider,
+                          currentUserId: auth.userId
+                        );
                       },
                       child: Builder(
                         builder: (context) {
@@ -388,7 +425,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 ),
               ).then((_) {
                 _clearAvailableQuantitiesCache();
-                context.read<ProductProvider>().loadProducts(refresh: true);
+                final saleProvider = context.read<SaleProvider>();
+                final auth = context.read<AuthProvider>();
+                context.read<ProductProvider>().loadProducts(
+                  refresh: true,
+                  saleProvider: saleProvider,
+                  currentUserId: auth.userId
+                );
               });
             },
             child: const Icon(Icons.add),

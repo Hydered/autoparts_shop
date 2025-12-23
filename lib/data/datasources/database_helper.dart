@@ -197,7 +197,7 @@ class DatabaseHelper {
     ''');
 
     // Исправляем пути к изображениям при каждом открытии БД
-    await _fixImagePaths(db);
+    await updateProductImages(db);
   }
 
   Future<Database> _createNewDatabase(String path) async {
@@ -330,11 +330,8 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX IF NOT EXISTS idx_cartitems_user_id ON CartItems(user_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_cartitems_product_id ON CartItems(product_id)');
 
-    // Исправляем пути к изображениям
-    await _fixImagePaths(db);
-
-    // Исправляем пути к изображениям
-    await _fixImagePaths(db);
+    // Исправляем пути к изображениям товаров в базе данных
+    await updateProductImages(db);
 
     // Seed data: создаём админа по умолчанию
     await db.execute('''
@@ -569,9 +566,55 @@ class DatabaseHelper {
     }
   }
 
-  /// Исправляет пути к изображениям в базе данных (оставлено для совместимости)
-  Future<void> _fixImagePaths(Database db) async {
-    // Функция оставлена для совместимости, исправление путей теперь происходит в ProductImageWidget
+
+  /// Обновляет пути к изображениям товаров в базе данных
+  Future<void> updateProductImages(Database db) async {
+    try {
+      final products = await db.query('Products');
+
+      int updatedCount = 0;
+      for (final product in products) {
+        final name = (product['name'] as String? ?? '').toLowerCase();
+
+        String? imagePath;
+        if (name.contains('gates') && (name.contains('ремень') || name.contains('грм'))) {
+          imagePath = 'assets/images/gates_grm_1.png';
+        }
+        else if (name.contains('bosch') && name.contains('масляный')) {
+          imagePath = 'assets/images/bosch_filter_2.png';
+        } else if (name.contains('bosch') && name.contains('фильтр')) {
+          imagePath = 'assets/images/bosch_filter_1.png';
+        }
+        else if (name.contains('ate') && name.contains('диск')) {
+          imagePath = 'assets/images/ate_disc_1.png';
+        } else if (name.contains('ate') && (name.contains('тормозной') || name.contains('колодки') || name.contains('тормозн') || name.contains('колодк'))) {
+          imagePath = 'assets/images/ate_brake_1.png';
+        }
+        else if (name.contains('kyb') && (name.contains('амортизатор') || name.contains('амортиз'))) {
+          imagePath = 'assets/images/kyb_amort_1.png';
+        }
+        else if (name.contains('mann') && name.contains('фильтр')) {
+          imagePath = 'assets/images/mann_filter_1.png';
+        }
+
+        if (imagePath != null) {
+          final currentImage = product['image_url'];
+          if (currentImage != imagePath) {
+            await db.update(
+              'Products',
+              {'image_url': imagePath},
+              where: 'id = ?',
+              whereArgs: [product['id']],
+            );
+            updatedCount++;
+          }
+        }
+      }
+
+      print('DatabaseHelper: обновлено изображений для $updatedCount товаров');
+    } catch (e) {
+      print('DatabaseHelper: ошибка обновления изображений: $e');
+    }
   }
 
   Future<void> close() async {

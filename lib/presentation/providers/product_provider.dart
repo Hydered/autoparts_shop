@@ -115,7 +115,7 @@ class ProductProvider with ChangeNotifier {
   // Храним оригинальные количества товаров для быстрого сброса резервирований
   final Map<int, int> _originalQuantities = {};
 
-  Future<void> loadProducts({bool refresh = false}) async {
+  Future<void> loadProducts({bool refresh = false, dynamic saleProvider, int? currentUserId}) async {
     if (refresh) {
       _currentPage = 0;
       _hasMore = true;
@@ -165,6 +165,15 @@ class ProductProvider with ChangeNotifier {
       _currentPage++;
 
       _error = null;
+
+      // Применяем резервирования из корзины после загрузки товаров
+      if (saleProvider != null && refresh) {
+        try {
+          await saleProvider.applyCartReservationsToProducts(currentUserId: currentUserId);
+        } catch (e) {
+          print('Ошибка применения резервирований: $e');
+        }
+      }
     } catch (e) {
       _error = e.toString();
       if (e is AppException) {

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import '../providers/auth_provider.dart';
 import 'package:flutter/services.dart';
-import '../utils/russian_phone_operator.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -29,11 +28,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void initState() {
     super.initState();
     _phoneMaskFormatter = MaskTextInputFormatter(
-      mask: '+7 (###) ###-##-##',
+      mask: '+# (###) ###-##-##',
       filter: {"#": RegExp(r'[0-9]')},
       type: MaskAutoCompletionType.lazy,
     );
-    print('Phone mask formatter initialized'); // Debug
   }
 
   @override
@@ -102,10 +100,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     // Проверяем валидацию формы
     final isValid = _formKey.currentState?.validate() ?? false;
-    print('Form validation result: $isValid'); // Debug
 
     if (!isValid) {
-      print('Form validation failed'); // Debug
       return;
     }
     final auth = context.read<AuthProvider>();
@@ -152,45 +148,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 validator: _fullNameValidator,
               ),
               const SizedBox(height: 8),
-              Builder(
-                builder: (context) {
-                  final detectedOperator = detectRussianOperator(_phoneController.text);
-                  return TextFormField(
-                    controller: _phoneController,
-                    decoration: InputDecoration(
-                      labelText: 'Телефон',
-                      hintText: '+7 (000) 000-00-00',
-                      suffixIcon: detectedOperator != null
-                          ? Tooltip(
-                              message: detectedOperator,
-                              child: Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Text(detectedOperator,
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                              ),
-                            )
-                          : null,
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Телефон обязателен';
-                      }
+              TextFormField(
+                controller: _phoneController,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                decoration: const InputDecoration(
+                  labelText: 'Телефон',
+                  hintText: '+X (XXX) XXX-XX-XX',
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Телефон обязателен';
+                  }
 
-                      // Проверяем что номер введен полностью в формате +7 (XXX) XXX-XX-XX
-                      final phoneRegex = RegExp(r'^\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}$');
-                      if (!phoneRegex.hasMatch(value)) {
-                        return 'Укажите номер полностью +7 (000) 000-00-00';
-                      }
-                      return null;
-                    },
-                    keyboardType: TextInputType.phone,
-                    inputFormatters: [
-                      _phoneMaskFormatter,
-                    ],
-                    onChanged: (text) {
-                      setState(() {});
-                    },
-                  );
+                  // Проверяем что введены только цифры и допустимые символы
+                  final phoneRegex = RegExp(r'^[\d\s\-\+\(\)]+$');
+                  if (!phoneRegex.hasMatch(value.trim())) {
+                    return 'Телефон должен содержать только цифры';
+                  }
+
+                  // Проверяем минимальную длину (без учета форматирования)
+                  final digitsOnly = value.replaceAll(RegExp(r'[^\d]'), '');
+                  if (digitsOnly.length < 10) {
+                    return 'Введите полный номер телефона (минимум 10 цифр)';
+                  }
+
+                  return null;
+                },
+                keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
+                  _phoneMaskFormatter,
+                ],
+                onChanged: (text) {
+                  setState(() {});
                 },
               ),
               const SizedBox(height: 8),
@@ -248,4 +238,3 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
-
