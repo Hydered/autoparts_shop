@@ -25,9 +25,70 @@ import 'presentation/screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Инициализация русской локализации для дат
   await initializeDateFormatting('ru_RU', null);
+
+  // Обновим пути к изображениям товаров в базе данных
+  try {
+    final db = await DatabaseHelper.instance.database;
+    final products = await db.query('Products');
+    print('Найдено товаров: ${products.length}');
+
+    int updatedCount = 0;
+    for (final product in products) {
+      final name = (product['name'] as String? ?? '').toLowerCase();
+      final id = product['id'];
+      final currentImage = product['image_url'];
+
+      print('Проверяем товар: "${product['name']}", изображение: $currentImage');
+
+      String? imagePath;
+      // Gates ремень ГРМ
+      if (name.contains('gates') && (name.contains('ремень') || name.contains('грм'))) {
+        imagePath = 'assets/images/gates_grm_1.png';
+      }
+      // Bosch фильтры
+      else if (name.contains('bosch') && name.contains('масляный')) {
+        imagePath = 'assets/images/bosch_filter_2.png';
+      } else if (name.contains('bosch') && name.contains('фильтр')) {
+        imagePath = 'assets/images/bosch_filter_1.png';
+      }
+      // ATE тормозная система
+      else if (name.contains('ate') && name.contains('диск')) {
+        imagePath = 'assets/images/ate_disc_1.png';
+      } else if (name.contains('ate') && (name.contains('тормозной') || name.contains('колодки') || name.contains('тормозн') || name.contains('колодк'))) {
+        imagePath = 'assets/images/ate_brake_1.png';
+      }
+      // KYB амортизаторы
+      else if (name.contains('kyb') && (name.contains('амортизатор') || name.contains('амортиз'))) {
+        imagePath = 'assets/images/kyb_amort_1.png';
+      }
+      // Mann фильтры
+      else if (name.contains('mann') && name.contains('фильтр')) {
+        imagePath = 'assets/images/mann_filter_1.png';
+      }
+
+      if (imagePath != null && currentImage != imagePath) {
+        await db.update(
+          'Products',
+          {'image_url': imagePath},
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        print('✓ Обновлено: "${product['name']}" -> $imagePath');
+        updatedCount++;
+      } else if (imagePath != null && currentImage == imagePath) {
+        print('✓ Уже правильное изображение: "${product['name']}" -> $imagePath');
+      } else {
+        print('✗ Не найдено подходящее изображение для: "${product['name']}"');
+      }
+    }
+
+    print('Обновлено изображений: $updatedCount');
+  } catch (e) {
+    print('Ошибка обновления базы данных: $e');
+  }
 
   // Проверяем платформу перед запуском
   if (kIsWeb) {

@@ -195,6 +195,9 @@ class DatabaseHelper {
         FOREIGN KEY (product_id) REFERENCES Products(id) ON DELETE CASCADE
       )
     ''');
+
+    // Исправляем пути к изображениям при каждом открытии БД
+    await _fixImagePaths(db);
   }
 
   Future<Database> _createNewDatabase(String path) async {
@@ -326,6 +329,12 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX IF NOT EXISTS idx_c_name_unit ON Characteristics(name, unit)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_cartitems_user_id ON CartItems(user_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_cartitems_product_id ON CartItems(product_id)');
+
+    // Исправляем пути к изображениям
+    await _fixImagePaths(db);
+
+    // Исправляем пути к изображениям
+    await _fixImagePaths(db);
 
     // Seed data: создаём админа по умолчанию
     await db.execute('''
@@ -558,6 +567,11 @@ class DatabaseHelper {
       await db.execute('CREATE INDEX IF NOT EXISTS idx_cartitems_user_id ON CartItems(user_id)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_cartitems_product_id ON CartItems(product_id)');
     }
+  }
+
+  /// Исправляет пути к изображениям в базе данных (оставлено для совместимости)
+  Future<void> _fixImagePaths(Database db) async {
+    // Функция оставлена для совместимости, исправление путей теперь происходит в ProductImageWidget
   }
 
   Future<void> close() async {

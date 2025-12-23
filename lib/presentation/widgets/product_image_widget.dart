@@ -16,15 +16,35 @@ class ProductImageWidget extends StatelessWidget {
     this.fit = BoxFit.cover,
   });
 
+  /// Возвращает исправленный путь к изображению
+  String? _getCorrectImagePath(String? path) {
+    if (path == null || path.isEmpty) return null;
+
+    // Если путь уже правильный, возвращаем как есть
+    if (path.startsWith('assets/images/')) {
+      return path;
+    }
+
+    // Простая логика: если это просто имя файла, добавляем assets/images/
+    if (!path.startsWith('assets/') && !path.startsWith('/')) {
+      return 'assets/images/$path';
+    }
+
+    return path;
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (imagePath == null || imagePath!.isEmpty) {
+    // Исправляем путь к изображению
+    final correctedPath = _getCorrectImagePath(imagePath);
+
+    if (correctedPath == null || correctedPath.isEmpty) {
       return _buildPlaceholder();
     }
 
     // Если путь начинается с /, это абсолютный путь к файлу
-    if (imagePath!.startsWith('/')) {
-      final file = File(imagePath!);
+    if (correctedPath.startsWith('/')) {
+      final file = File(correctedPath);
       if (file.existsSync()) {
         return Image.file(
           file,
@@ -39,11 +59,11 @@ class ProductImageWidget extends StatelessWidget {
     }
 
     // Если путь содержит обратные слэши (Windows путь) или выглядит как путь к файлу
-    if (imagePath!.contains('\\') || 
-        (imagePath!.contains('/') && !imagePath!.startsWith('assets/'))) {
+    if (correctedPath.contains('\\') ||
+        (correctedPath.contains('/') && !correctedPath.startsWith('assets/'))) {
       // Пытаемся проверить, существует ли файл
       try {
-        final file = File(imagePath!);
+        final file = File(correctedPath);
         if (file.existsSync()) {
           return Image.file(
             file,
@@ -59,49 +79,15 @@ class ProductImageWidget extends StatelessWidget {
     }
 
     // Во всех остальных случаях пытаемся загрузить как asset
-    // Поддерживаем разные форматы путей:
-    // - assets/images/product.jpg
-    // - assets/product.jpg
-    // - images/product.jpg
-    // - product.jpg
-    
-    List<String> possiblePaths = [];
-    
-    if (imagePath!.startsWith('assets/')) {
-      // Уже полный путь к asset
-      possiblePaths.add(imagePath!);
-    } else if (imagePath!.startsWith('images/')) {
-      // Путь начинается с images/
-      possiblePaths.add('assets/${imagePath!}');
-      possiblePaths.add(imagePath!);
-    } else {
-      // Просто имя файла или относительный путь
-      possiblePaths.add('assets/images/${imagePath!}');
-      possiblePaths.add('assets/${imagePath!}');
-      possiblePaths.add('images/${imagePath!}');
-      possiblePaths.add(imagePath!);
-    }
-
-    // Пробуем загрузить по каждому возможному пути
-    return _tryLoadAsset(possiblePaths, 0);
-  }
-
-  Widget _tryLoadAsset(List<String> paths, int index) {
-    if (index >= paths.length) {
-      return _buildPlaceholder();
-    }
-
     return Image.asset(
-      paths[index],
+      correctedPath,
       width: width,
       height: height,
       fit: fit,
-      errorBuilder: (context, error, stackTrace) {
-        // Пробуем следующий путь
-        return _tryLoadAsset(paths, index + 1);
-      },
+      errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
     );
   }
+
 
   Widget _buildPlaceholder() {
     return Container(
