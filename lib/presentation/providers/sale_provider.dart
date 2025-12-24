@@ -416,7 +416,7 @@ class SaleProvider with ChangeNotifier {
   Receipt? _lastReceipt;
   Receipt? get lastReceipt => _lastReceipt;
 
-  Future<bool> completeSale(int userId, String? customerName, String? notes) async {
+  Future<bool> completeSale(int userId, String? notes) async {
     if (_cart.isEmpty) {
       _error = 'Cart is empty';
       notifyListeners();
@@ -448,7 +448,6 @@ class SaleProvider with ChangeNotifier {
           unitPrice: item.product.price,
           totalPrice: item.totalPrice,
           saleDate: now,
-          customerName: customerName,
           notes: notes,
           orderNumber: orderNumber, // Один номер заказа для всех товаров в корзине
         );
@@ -480,7 +479,7 @@ class SaleProvider with ChangeNotifier {
         vatAmount: vatAmount,
         paymentMethod: 'НАЛИЧНЫМИ',
         cashier: 'Администратор',
-        customerName: customerName,
+        customerName: null, // Имя будет получено из Users по userId в UI
         notes: notes,
         orderNumber: orderNumber, // Добавляем номер заказа в чек
         // Генерируем фискальные данные (в реальной системе они приходят от ККТ)

@@ -203,7 +203,6 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
     
     final success = await saleProvider.completeSale(
       auth.userId!,
-      fullName,
       _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
     );
 
@@ -229,7 +228,10 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
       if (receipt != null) {
         await Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => ReceiptPreviewScreen(receipt: receipt),
+            builder: (_) => ReceiptPreviewScreen(
+              receipt: receipt,
+              customerName: auth.fullName,
+            ),
           ),
         );
       } else {

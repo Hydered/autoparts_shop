@@ -6,7 +6,7 @@ class Sale {
   final double unitPrice;
   final double totalPrice;
   final DateTime saleDate;
-  final String? customerName;
+  final String? customerName; // <-- заполняется из JOIN с Users
   final String? notes;
   final String? orderNumber;
   final String? status;

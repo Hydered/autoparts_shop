@@ -22,8 +22,7 @@ class ProductModel extends Product {
     final description = json['Description'] as String? ?? json['description'] as String? ?? '';
     final categoryId = json['CategoryId'] as int? ?? json['category_id'] as int;
     final price = (json['Price'] as num?)?.toDouble() ?? (json['price'] as num).toDouble();
-    // quantity может храниться либо в отдельной таблице Stock (quantity),
-    // либо прямо в Products.stock
+    // quantity хранится в поле Products.stock
     final quantity = json['quantity'] as int? ??
         json['Quantity'] as int? ??
         json['stock'] as int? ??
@@ -67,7 +66,7 @@ class ProductModel extends Product {
       'description': description,
       'category_id': categoryId,
       'price': price,
-      'quantity': quantity, // Для JOIN с Stock
+      'quantity': quantity, // Хранится в Products.stock
       if (sku.isNotEmpty) 'sku': sku,
       // min_quantity не записываем - используется только для чтения с дефолтом 5
       if (imagePath != null && imagePath!.isNotEmpty) 'image_url': imagePath,

@@ -10,11 +10,13 @@ import 'package:path_provider/path_provider.dart';
 class ReceiptPreviewScreen extends StatelessWidget {
   final Receipt receipt;
   final bool showSaveButton;
+  final String? customerName;
 
   const ReceiptPreviewScreen({
     Key? key,
     required this.receipt,
     this.showSaveButton = true,
+    this.customerName,
   }) : super(key: key);
 
   Future<void> _saveReceiptToPDF(BuildContext context) async {
@@ -44,7 +46,7 @@ class ReceiptPreviewScreen extends StatelessWidget {
                 ),
                 pw.Text('Дата: ${DateFormat('dd.MM.yyyy HH:mm').format(receipt.dateTime)}'),
                 pw.Text('Кассир: ${receipt.cashier}'),
-                pw.Text('Покупатель: ${receipt.customerName}'),
+                pw.Text('Покупатель: ${customerName ?? 'Не указан'}'),
                 pw.SizedBox(height: 10),
                 pw.Text('Товары:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                 pw.SizedBox(height: 10),
@@ -151,8 +153,8 @@ class ReceiptPreviewScreen extends StatelessWidget {
                   ),
                   Text('Дата: ${DateFormat('dd.MM.yyyy HH:mm').format(receipt.dateTime)}'),
                   Text('Кассир: ${receipt.cashier}'),
-                  if (receipt.customerName != null && receipt.customerName!.isNotEmpty)
-                    Text('Покупатель: ${receipt.customerName}'),
+                  if (customerName != null && customerName!.isNotEmpty)
+                    Text('Покупатель: $customerName'),
                 ],
               ),
             ),

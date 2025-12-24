@@ -91,6 +91,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 controller: _fullNameController,
                 decoration: const InputDecoration(labelText: 'ФИО'),
                 validator: (v) => v == null || v.trim().isEmpty ? 'Обязательное поле' : null,
+                autocorrect: false,
+                enableSuggestions: false,
+                textCapitalization: TextCapitalization.words,
               ),
               const SizedBox(height: 8),
               TextFormField(

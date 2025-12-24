@@ -24,20 +24,21 @@ class SaleLocalDataSource {
     try {
       final db = await dbHelper.database;
       var query = '''
-        SELECT 
+        SELECT
           s.id as id,
           s.created_at as created_at,
           s.order_number as order_number,
           s.total_price as total_price,
           s.status as status,
           s.user_id as user_id,
-          s.CustomerName as customer_name,
+          u.FullName as customer_name,
           s.Notes as notes,
           si.product_id as product_id,
           si.quantity as quantity,
           si.price as unit_price
         FROM Sales s
         INNER JOIN SaleItems si ON s.id = si.sale_id
+        INNER JOIN Users u ON s.user_id = u.Id
         WHERE 1=1
       ''';
       final List<dynamic> whereArgs = [];
@@ -80,20 +81,21 @@ class SaleLocalDataSource {
     try {
       final db = await dbHelper.database;
       final maps = await db.rawQuery('''
-        SELECT 
+        SELECT
           s.id as id,
           s.created_at as created_at,
           s.order_number as order_number,
           s.total_price as total_price,
           s.status as status,
           s.user_id as user_id,
-          s.CustomerName as customer_name,
+          u.FullName as customer_name,
           s.Notes as notes,
           si.product_id as product_id,
           si.quantity as quantity,
           si.price as unit_price
         FROM Sales s
         INNER JOIN SaleItems si ON s.id = si.sale_id
+        INNER JOIN Users u ON s.user_id = u.Id
         WHERE s.id = ?
         LIMIT 1
       ''', [id]);
@@ -115,7 +117,6 @@ class SaleLocalDataSource {
         'status': 'completed',
         'order_number': sale.orderNumber ?? '',
         'total_price': sale.totalPrice,
-        'CustomerName': sale.customerName,
         'Notes': sale.notes,
       });
       
@@ -209,13 +210,14 @@ class SaleLocalDataSource {
           s.total_price as total_price,
           s.status as status,
           s.user_id as user_id,
-          s.CustomerName as customer_name,
+          u.FullName as customer_name,
           s.Notes as notes,
           si.product_id as product_id,
           si.quantity as quantity,
           si.price as unit_price
         FROM Sales s
         INNER JOIN SaleItems si ON s.id = si.sale_id
+        INNER JOIN Users u ON s.user_id = u.Id
         WHERE s.order_number = ? AND s.user_id = ?
         ${ignoreClientDeletedHistory ? '' : 'AND (s.client_deleted_history IS NULL OR s.client_deleted_history = 0)'}
         ORDER BY s.created_at DESC

@@ -146,6 +146,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 controller: _fullNameController,
                 decoration: const InputDecoration(labelText: 'ФИО'),
                 validator: _fullNameValidator,
+                autocorrect: false,
+                enableSuggestions: false,
+                textCapitalization: TextCapitalization.words,
               ),
               const SizedBox(height: 8),
               TextFormField(

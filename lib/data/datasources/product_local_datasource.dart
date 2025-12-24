@@ -18,14 +18,13 @@ class ProductLocalDataSource {
   }) async {
     try {
       final db = await dbHelper.database;
-      // Количество берём из поля Products.stock или из Stock.Quantity
+      // Количество берётся из поля Products.stock
       var query = '''
         SELECT
           p.*,
-          COALESCE(p.stock, s.Quantity, 0) as quantity,
+          p.stock as quantity,
           p.image_url as image_path
         FROM Products p
-        LEFT JOIN Stock s ON p.id = s.ProductId
         WHERE 1=1
       ''';
       final List<dynamic> whereArgs = [];
@@ -81,10 +80,9 @@ class ProductLocalDataSource {
       final maps = await db.rawQuery('''
         SELECT
           p.*,
-          COALESCE(p.stock, s.Quantity, 0) as quantity,
+          p.stock as quantity,
           p.image_url as image_path
         FROM Products p
-        LEFT JOIN Stock s ON p.id = s.ProductId
         WHERE p.id = ?
       ''', [id]);
       if (maps.isEmpty) return null;
@@ -100,10 +98,9 @@ class ProductLocalDataSource {
       final maps = await db.rawQuery('''
         SELECT
           p.*,
-          COALESCE(p.stock, s.Quantity, 0) as quantity,
+          p.stock as quantity,
           p.image_url as image_path
         FROM Products p
-        LEFT JOIN Stock s ON p.id = s.ProductId
         WHERE p.sku = ?
       ''', [sku]);
       if (maps.isEmpty) return null;
@@ -124,8 +121,8 @@ class ProductLocalDataSource {
       
       final productId = await db.insert('Products', productJson);
       
-      // Таблица Stock может существовать в других схемах, но для текущей не обязательна,
-      // поэтому здесь её не трогаем.
+      // Используем только поле stock в таблице Products.
+      // Остатки хранятся в поле Products.stock
       return productId;
     } catch (e) {
       throw app_exceptions.AppDatabaseException('Не удалось вставить товар: $e');
@@ -170,11 +167,10 @@ class ProductLocalDataSource {
       final maps = await db.rawQuery('''
         SELECT
           p.*,
-          COALESCE(p.stock, s.Quantity, 0) as quantity,
+          p.stock as quantity,
           p.image_url as image_path
         FROM Products p
-        LEFT JOIN Stock s ON p.id = s.ProductId
-        WHERE COALESCE(p.stock, s.Quantity, 0) <= 5
+        WHERE p.stock <= 5
         ORDER BY quantity ASC
       ''');
       return maps.map((map) => ProductModel.fromJson(map)).toList();

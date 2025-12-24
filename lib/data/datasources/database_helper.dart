@@ -236,26 +236,19 @@ class DatabaseHelper {
       )
     ''');
 
-    // Stock table (отдельная таблица для остатков)
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS Stock (
-        ProductId INTEGER PRIMARY KEY,
-        Quantity INTEGER NOT NULL DEFAULT 0,
-        FOREIGN KEY (ProductId) REFERENCES Products(Id)
-      )
-    ''');
+    // Таблица Stock удалена - остатки хранятся в поле Products.stock
 
     // Sales table (обновленная версия с поддержкой user_id)
     await db.execute('''
       CREATE TABLE IF NOT EXISTS Sales (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         created_at INTEGER NOT NULL,
-        user_id INTEGER,
+        user_id INTEGER NOT NULL,
         status TEXT DEFAULT 'completed',
         order_number TEXT,
         total_price REAL,
-        CustomerName TEXT,
-        Notes TEXT
+        Notes TEXT,
+        FOREIGN KEY (user_id) REFERENCES Users(Id)
       )
     ''');
 
@@ -356,14 +349,7 @@ class DatabaseHelper {
         print('Ошибка миграции: $e');
       }
 
-      // Создаем новые таблицы, если их нет
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS Stock (
-          ProductId INTEGER PRIMARY KEY,
-          Quantity INTEGER NOT NULL DEFAULT 0,
-          FOREIGN KEY (ProductId) REFERENCES Products(Id)
-        )
-      ''');
+      // Таблица Stock больше не используется - остатки хранятся в Products.stock
 
       await db.execute('''
         CREATE TABLE IF NOT EXISTS SaleItems (

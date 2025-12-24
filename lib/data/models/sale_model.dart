@@ -73,12 +73,12 @@ class SaleModel extends Sale {
       }
     }
     
-    final customerName = json['customer_name'] as String? ?? json['CustomerName'] as String?;
+    final customerName = json['customer_name'] as String?;
     final notes = json['notes'] as String? ?? json['Notes'] as String?;
     final orderNumber = json['order_number'] as String?;
     final status = json['status'] as String?;
     final createdAt = _parseInt(json['created_at']);
-    
+
     return SaleModel(
       id: id,
       userId: _parseInt(json['user_id']) ?? _parseInt(json['UserId']),

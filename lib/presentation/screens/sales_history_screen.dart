@@ -625,9 +625,22 @@ final orderNumber = firstSale.orderNumber ?? '';
                                       }
                                     }
                                     if (receipt != null) {
+                                      // Получаем имя покупателя
+                                      String? customerName;
+                                      try {
+                                        final auth = context.read<AuthProvider>();
+                                        final userDetails = await auth.getUserDetailsById(userId);
+                                        customerName = userDetails?['FullName'] as String?;
+                                      } catch (e) {
+                                        customerName = 'Клиент #$userId';
+                                      }
+
                                       await Navigator.of(context).push(
                                         MaterialPageRoute(
-                                          builder: (_) => ReceiptPreviewScreen(receipt: receipt!),
+                                          builder: (_) => ReceiptPreviewScreen(
+                                            receipt: receipt!,
+                                            customerName: customerName,
+                                          ),
                                         ),
                                       );
                                     } else {
@@ -787,8 +800,8 @@ final orderNumber = firstSale.orderNumber ?? '';
                             if (orderNumber.isNotEmpty) {
                               // Используем кэш чеков
                               Receipt? receipt = _receiptsCache[orderNumber];
+                              final auth = context.read<AuthProvider>();
                               if (receipt == null) {
-                                final auth = context.read<AuthProvider>();
                                 receipt = await context.read<SaleProvider>().generateReceiptForOrder(
                                   orderNumber,
                                   auth.userId!,
@@ -801,7 +814,10 @@ final orderNumber = firstSale.orderNumber ?? '';
                               if (receipt != null) {
                                 await Navigator.of(context).push(
                                   MaterialPageRoute(
-                                    builder: (_) => ReceiptPreviewScreen(receipt: receipt!),
+                                    builder: (_) => ReceiptPreviewScreen(
+                                      receipt: receipt!,
+                                      customerName: auth.fullName,
+                                    ),
                                   ),
                                 );
                               } else {
