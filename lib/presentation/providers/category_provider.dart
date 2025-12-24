@@ -36,16 +36,5 @@ class CategoryProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> addCategory(domain.Category category) async {
-    try {
-      await categoryRepository.insertCategory(category);
-      await loadCategories();
-      return true;
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-      return false;
-    }
-  }
 }
 

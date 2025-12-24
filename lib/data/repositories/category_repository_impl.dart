@@ -1,7 +1,6 @@
 import '../../domain/entities/category.dart';
 import '../../domain/repositories/category_repository.dart';
 import '../datasources/category_local_datasource.dart';
-import '../models/category_model.dart';
 
 class CategoryRepositoryImpl implements CategoryRepository {
   final CategoryLocalDataSource localDataSource;
@@ -19,21 +18,5 @@ class CategoryRepositoryImpl implements CategoryRepository {
     return await localDataSource.getCategoryById(id);
   }
 
-  @override
-  Future<int> insertCategory(Category category) async {
-    final model = CategoryModel.fromEntity(category);
-    return await localDataSource.insertCategory(model);
-  }
-
-  @override
-  Future<int> updateCategory(Category category) async {
-    final model = CategoryModel.fromEntity(category);
-    return await localDataSource.updateCategory(model);
-  }
-
-  @override
-  Future<int> deleteCategory(int id) async {
-    return await localDataSource.deleteCategory(id);
-  }
 }
 

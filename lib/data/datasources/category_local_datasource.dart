@@ -32,40 +32,5 @@ class CategoryLocalDataSource {
     }
   }
 
-  Future<int> insertCategory(CategoryModel category) async {
-    try {
-      final db = await dbHelper.database;
-      return await db.insert('Categories', category.toJson());
-    } catch (e) {
-      throw app_exceptions.AppDatabaseException('Не удалось вставить категорию: $e');
-    }
-  }
-
-  Future<int> updateCategory(CategoryModel category) async {
-    try {
-      final db = await dbHelper.database;
-      return await db.update(
-        'Categories',
-        category.toJson(),
-        where: 'Id = ?',
-        whereArgs: [category.id],
-      );
-    } catch (e) {
-      throw app_exceptions.AppDatabaseException('Не удалось обновить категорию: $e');
-    }
-  }
-
-  Future<int> deleteCategory(int id) async {
-    try {
-      final db = await dbHelper.database;
-      return await db.delete(
-        'Categories',
-        where: 'Id = ?',
-        whereArgs: [id],
-      );
-    } catch (e) {
-      throw app_exceptions.AppDatabaseException('Не удалось удалить категорию: $e');
-    }
-  }
 }
 
