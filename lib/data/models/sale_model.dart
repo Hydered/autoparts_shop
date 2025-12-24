@@ -24,7 +24,6 @@ class SaleModel extends Sale {
     required super.unitPrice,
     required super.totalPrice,
     required super.saleDate,
-    super.customerName,
     super.notes,
     super.orderNumber,
     super.status,
@@ -73,7 +72,6 @@ class SaleModel extends Sale {
       }
     }
     
-    final customerName = json['customer_name'] as String?;
     final notes = json['notes'] as String? ?? json['Notes'] as String?;
     final orderNumber = json['order_number'] as String?;
     final status = json['status'] as String?;
@@ -87,7 +85,6 @@ class SaleModel extends Sale {
       unitPrice: unitPrice,
       totalPrice: totalPrice,
       saleDate: saleDate,
-      customerName: customerName,
       notes: notes,
       orderNumber: orderNumber,
       status: status,
@@ -104,7 +101,6 @@ class SaleModel extends Sale {
       'unit_price': unitPrice,
       'total_price': totalPrice,
       'sale_date': saleDate.millisecondsSinceEpoch,
-      'customer_name': customerName,
       'notes': notes,
       'order_number': orderNumber,
       'status': status,
@@ -121,7 +117,6 @@ class SaleModel extends Sale {
       totalPrice: sale.totalPrice,
       saleDate: sale.saleDate,
       userId: sale.userId,
-      customerName: sale.customerName,
       notes: sale.notes,
       orderNumber: sale.orderNumber,
       status: sale.status,

@@ -6,7 +6,6 @@ class Sale {
   final double unitPrice;
   final double totalPrice;
   final DateTime saleDate;
-  final String? customerName; // <-- заполняется из JOIN с Users
   final String? notes;
   final String? orderNumber;
   final String? status;
@@ -20,7 +19,6 @@ class Sale {
     required this.unitPrice,
     required this.totalPrice,
     required this.saleDate,
-    this.customerName,
     this.notes,
     this.orderNumber,
     this.status,
@@ -34,7 +32,6 @@ class Sale {
     double? unitPrice,
     double? totalPrice,
     DateTime? saleDate,
-    String? customerName,
     String? notes,
   }) {
     return Sale(
@@ -45,7 +42,6 @@ class Sale {
       unitPrice: unitPrice ?? this.unitPrice,
       totalPrice: totalPrice ?? this.totalPrice,
       saleDate: saleDate ?? this.saleDate,
-      customerName: customerName ?? this.customerName,
       notes: notes ?? this.notes,
       orderNumber: orderNumber ?? this.orderNumber,
       status: status ?? this.status,

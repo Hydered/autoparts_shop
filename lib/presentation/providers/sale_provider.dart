@@ -509,7 +509,7 @@ class SaleProvider with ChangeNotifier {
   }
 
   /// Генерирует чек для конкретного заказа по номеру заказа
-  Future<Receipt?> generateReceiptForOrder(String orderNumber, int userId, {bool ignoreClientDeletedHistory = false}) async {
+  Future<Receipt?> generateReceiptForOrder(String orderNumber, int userId, String customerName, {bool ignoreClientDeletedHistory = false}) async {
     try {
       // Получаем все продажи для данного заказа
       final sales = await saleRepository.getSalesByOrderNumber(orderNumber, userId, ignoreClientDeletedHistory: ignoreClientDeletedHistory);
@@ -550,7 +550,7 @@ class SaleProvider with ChangeNotifier {
         vatAmount: vatAmount,
         paymentMethod: 'НАЛИЧНЫМИ',
         cashier: 'Администратор',
-        customerName: sales.first.customerName,
+        customerName: customerName,
         notes: sales.first.notes,
         orderNumber: orderNumber,
         // Генерируем фискальные данные (в реальной системе они приходят от ККТ)

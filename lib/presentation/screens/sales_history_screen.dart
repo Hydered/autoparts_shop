@@ -87,6 +87,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
   Future<void> _exportToPDF() async {
     final saleProvider = context.read<SaleProvider>();
     final productProvider = context.read<ProductProvider>();
+    final authProvider = context.read<AuthProvider>();
 
     try {
       final sales = saleProvider.sales;
@@ -114,6 +115,17 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
 
       for (final sale in sales) {
         final product = await productProvider.getProductById(sale.productId);
+        // Получаем имя покупателя через userId
+        String customerName = 'Неизвестно';
+        if (sale.userId != null) {
+          try {
+            final userDetails = await authProvider.getUserDetailsById(sale.userId!);
+            customerName = userDetails?['FullName'] as String? ?? 'Клиент #${sale.userId}';
+          } catch (e) {
+            customerName = 'Клиент #${sale.userId}';
+          }
+        }
+
         rows.add([
           (sale.id ?? '').toString(),
           product?.name ?? 'Неизвестно',
@@ -124,7 +136,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
           NumberFormat.currency(locale: 'ru_RU', symbol: '₽')
               .format(sale.totalPrice),
           app_date_utils.DateUtils.formatDateTime(sale.saleDate),
-          sale.customerName ?? '',
+          customerName,
         ]);
       }
 
@@ -614,10 +626,21 @@ final orderNumber = firstSale.orderNumber ?? '';
                                   if (orderNumber.isNotEmpty) {
                                     // Используем кэш чеков
                                     Receipt? receipt = _receiptsCache[orderNumber];
+                                    // Получаем имя покупателя
+                                    String customerName;
+                                    try {
+                                      final auth = context.read<AuthProvider>();
+                                      final userDetails = await auth.getUserDetailsById(userId);
+                                      customerName = userDetails?['FullName'] as String? ?? 'Клиент #$userId';
+                                    } catch (e) {
+                                      customerName = 'Клиент #$userId';
+                                    }
+
                                     if (receipt == null) {
                                       receipt = await context.read<SaleProvider>().generateReceiptForOrder(
                                         orderNumber,
                                         userId,
+                                        customerName,
                                         ignoreClientDeletedHistory: true,
                                       );
                                       if (receipt != null) {
@@ -625,15 +648,6 @@ final orderNumber = firstSale.orderNumber ?? '';
                                       }
                                     }
                                     if (receipt != null) {
-                                      // Получаем имя покупателя
-                                      String? customerName;
-                                      try {
-                                        final auth = context.read<AuthProvider>();
-                                        final userDetails = await auth.getUserDetailsById(userId);
-                                        customerName = userDetails?['FullName'] as String?;
-                                      } catch (e) {
-                                        customerName = 'Клиент #$userId';
-                                      }
 
                                       await Navigator.of(context).push(
                                         MaterialPageRoute(
@@ -662,9 +676,20 @@ final orderNumber = firstSale.orderNumber ?? '';
                                     // Используем кэш чеков
                                     Receipt? receipt = _receiptsCache[orderNumber];
                                     if (receipt == null) {
+                                      // Получаем имя покупателя
+                                      String customerName;
+                                      try {
+                                        final auth = context.read<AuthProvider>();
+                                        final userDetails = await auth.getUserDetailsById(userId);
+                                        customerName = userDetails?['FullName'] as String? ?? 'Клиент #$userId';
+                                      } catch (e) {
+                                        customerName = 'Клиент #$userId';
+                                      }
+
                                       receipt = await context.read<SaleProvider>().generateReceiptForOrder(
                                         orderNumber,
                                         userId,
+                                        customerName,
                                         ignoreClientDeletedHistory: true,
                                       );
                                       if (receipt != null) {
@@ -805,6 +830,7 @@ final orderNumber = firstSale.orderNumber ?? '';
                                 receipt = await context.read<SaleProvider>().generateReceiptForOrder(
                                   orderNumber,
                                   auth.userId!,
+                                  auth.fullName ?? 'Администратор',
                                   ignoreClientDeletedHistory: auth.isAdmin,
                                 );
                                 if (receipt != null) {
@@ -843,6 +869,7 @@ final orderNumber = firstSale.orderNumber ?? '';
                                 receipt = await context.read<SaleProvider>().generateReceiptForOrder(
                                   orderNumber,
                                   auth.userId!,
+                                  auth.fullName ?? 'Администратор',
                                   ignoreClientDeletedHistory: auth.isAdmin,
                                 );
                                 if (receipt != null) {
