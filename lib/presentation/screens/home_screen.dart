@@ -490,6 +490,7 @@ class HomeTab extends StatelessWidget {
     );
   }
 
+
   Future<void> _showLowStockProducts(BuildContext context) async {
     final productProvider = context.read<ProductProvider>();
     

@@ -620,6 +620,37 @@ class DatabaseHelper {
     }
   }
 
+  /// Возвращает путь к файлу базы данных
+  Future<String> getDatabasePath() async {
+    final dbPath = await getDatabasesPath();
+    return join(dbPath, 'autoparts.db');
+  }
+
+
+
+  /// Возвращает структуру таблицы (список колонок)
+  Future<List<Map<String, dynamic>>> getTableStructure(String tableName) async {
+    final db = await database;
+    return await db.rawQuery('PRAGMA table_info($tableName)');
+  }
+
+  /// Возвращает данные из таблицы с пагинацией
+  Future<List<Map<String, dynamic>>> getTableData(
+    String tableName, {
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    final db = await database;
+    return await db.query(tableName, limit: limit, offset: offset);
+  }
+
+  /// Возвращает количество записей в таблице
+  Future<int> getTableRowCount(String tableName) async {
+    final db = await database;
+    final result = await db.rawQuery('SELECT COUNT(*) as count FROM $tableName');
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
   Future<void> close() async {
     final db = await database;
     await db.close();

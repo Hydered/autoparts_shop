@@ -64,12 +64,26 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     }
   }
 
+
+
   @override
   Widget build(BuildContext context) {
     if (_role == UserRole.admin) {
       return Scaffold(
-        appBar: AppBar(title: const Text(AppStrings.editProfile)),
-        body: const Center(child: Text(AppStrings.cannotEditAdmin)),
+        appBar: AppBar(title: const Text('Настройки администратора')),
+        body: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Инструменты администратора',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
       );
     }
     return Scaffold(
