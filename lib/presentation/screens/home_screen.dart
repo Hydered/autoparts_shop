@@ -215,44 +215,6 @@ class HomeTab extends StatelessWidget {
                         builder: (_) => const ProfileEditScreen(),
                       ),
                     );
-                  } else if (value == 'delete') {
-                    final confirmed = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Удаление аккаунта'),
-                        content: const Text(AppStrings.confirmDelete),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(false),
-                            child: const Text(AppStrings.cancel),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(true),
-                            style: TextButton.styleFrom(foregroundColor: Colors.red),
-                            child: const Text(AppStrings.delete),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (confirmed == true && context.mounted) {
-                      try {
-                        await auth.deleteAccount();
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Аккаунт удалён')),
-                          );
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(e.toString()),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      }
-                    }
                   } else if (value == 'logout') {
                     final saleProvider = context.read<SaleProvider>();
                     await auth.logoutWithCartClear(saleProvider);
@@ -274,21 +236,6 @@ class HomeTab extends StatelessWidget {
                             Icon(Icons.edit, size: 20),
                             SizedBox(width: 8),
                             Text(AppStrings.editProfile),
-                          ],
-                        ),
-                      ),
-                    );
-                    items.add(
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text(
-                              AppStrings.deleteAccount,
-                              style: TextStyle(color: Colors.red),
-                            ),
                           ],
                         ),
                       ),

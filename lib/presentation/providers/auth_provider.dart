@@ -138,14 +138,6 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<void> deleteAccount() async {
-    if (isClient && _userId != null) {
-      await userLocalDataSource.deleteUser(_userId!);
-      logout();
-    } else {
-      throw Exception('Аккаунт удалить нельзя');
-    }
-  }
 
   Future<void> updateAccount({
     required String fullName,

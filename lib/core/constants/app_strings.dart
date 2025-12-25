@@ -66,7 +66,6 @@ class AppStrings {
   static const String editProfile = 'Редактировать профиль';
   static const String saveChanges = 'Сохранить изменения';
   static const String logout = 'Выйти из аккаунта';
-  static const String deleteAccount = 'Удалить аккаунт';
   static const String confirmDelete = 'Вы точно хотите удалить аккаунт?';
   static const String cannotEditAdmin = 'Для администратора изменение профиля недоступно';
   static const String changesSaved = 'Данные успешно обновлены';

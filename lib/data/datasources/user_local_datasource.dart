@@ -55,10 +55,6 @@ class UserLocalDataSource {
     return res.isEmpty ? null : res.first;
   }
 
-  Future<void> deleteUser(int id) async {
-    final db = await dbHelper.database;
-    await db.delete('Users', where: 'Id = ?', whereArgs: [id]);
-  }
 
   Future<void> updateUser({
     required int id,
