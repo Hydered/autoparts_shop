@@ -77,6 +77,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (value == null || value.trim().isEmpty) {
       return 'Обязательное поле';
     }
+
+    // Проверяем что в ФИО нет цифр
+    final nameRegex = RegExp(r'\d');
+    if (nameRegex.hasMatch(value.trim())) {
+      return 'ФИО не должно содержать цифры';
+    }
+
     return null;
   }
 

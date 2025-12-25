@@ -83,7 +83,19 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               TextFormField(
                 controller: _fullNameController,
                 decoration: const InputDecoration(labelText: 'ФИО'),
-                validator: (v) => v == null || v.trim().isEmpty ? 'Обязательное поле' : null,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Обязательное поле';
+                  }
+
+                  // Проверяем что в ФИО нет цифр
+                  final nameRegex = RegExp(r'\d');
+                  if (nameRegex.hasMatch(v.trim())) {
+                    return 'ФИО не должно содержать цифры';
+                  }
+
+                  return null;
+                },
                 autocorrect: false,
                 enableSuggestions: false,
                 textCapitalization: TextCapitalization.words,

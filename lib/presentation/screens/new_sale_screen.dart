@@ -200,6 +200,20 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
       }
       return;
     }
+
+    // Проверяем что в ФИО нет цифр
+    final nameRegex = RegExp(r'\d');
+    if (nameRegex.hasMatch(fullName)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('ФИО не должно содержать цифры'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      return;
+    }
     
     final success = await saleProvider.completeSale(
       auth.userId!,
