@@ -207,11 +207,10 @@ class ProductLocalDataSource {
     try {
       final db = await dbHelper.database;
       final rows = await db.rawQuery('''
-        SELECT c.name, c.unit, pc.value
-        FROM ProductCharacteristics pc
-        INNER JOIN Characteristics c ON pc.characteristic_id = c.id
-        WHERE pc.product_id = ?
-        ORDER BY c.id
+        SELECT name, unit, value
+        FROM ProductCharacteristics
+        WHERE product_id = ?
+        ORDER BY name
       ''', [productId]);
 
       return rows
@@ -248,31 +247,13 @@ class ProductLocalDataSource {
           final value = c.value.trim();
           if (name.isEmpty || value.isEmpty) continue;
 
-          // Вставляем/находим характеристику в справочнике
-          await txn.insert(
-            'Characteristics',
-            {
-              'name': name,
-              'unit': unit.isEmpty ? null : unit,
-            },
-            conflictAlgorithm: ConflictAlgorithm.ignore,
-          );
-
-          final rows = await txn.query(
-            'Characteristics',
-            columns: ['id'],
-            where: unit.isEmpty ? 'name = ? AND unit IS NULL' : 'name = ? AND unit = ?',
-            whereArgs: unit.isEmpty ? [name] : [name, unit],
-            limit: 1,
-          );
-          if (rows.isEmpty) continue;
-          final characteristicId = rows.first['id'] as int;
-
+          // Вставляем характеристику напрямую
           await txn.insert(
             'ProductCharacteristics',
             {
               'product_id': productId,
-              'characteristic_id': characteristicId,
+              'name': name,
+              'unit': unit.isEmpty ? null : unit,
               'value': value,
             },
             conflictAlgorithm: ConflictAlgorithm.replace,
@@ -285,16 +266,8 @@ class ProductLocalDataSource {
   }
 
   Future<List<Map<String, dynamic>>> getAllAvailableCharacteristics() async {
-    try {
-      final db = await dbHelper.database;
-      final rows = await db.query(
-        'Characteristics',
-        orderBy: 'name ASC',
-      );
-      return rows;
-    } catch (e) {
-      throw app_exceptions.AppDatabaseException('Не удалось получить список характеристик: $e');
-    }
+    // Характеристики теперь управляются в коде UI, возвращаем пустой список
+    return [];
   }
 }
 

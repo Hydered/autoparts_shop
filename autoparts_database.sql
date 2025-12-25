@@ -53,33 +53,18 @@ END
 GO
 
 -- ===========================================
--- 3. Таблица характеристик (справочник)
--- ===========================================
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Characteristics' AND xtype='U')
-BEGIN
-    CREATE TABLE Characteristics (
-        Id INT IDENTITY(1,1) PRIMARY KEY,
-        Name NVARCHAR(100) NOT NULL,
-        Unit NVARCHAR(20), -- ед. измерения (кг, мм, Вт и т.д.)
-        CreatedAt DATETIME2 DEFAULT GETDATE(),
-        CONSTRAINT UQ_Characteristics_Name_Unit UNIQUE (Name, Unit)
-    );
-END
-GO
-
--- ===========================================
--- 4. Таблица связи товаров с характеристиками
+-- 3. Таблица характеристик товаров (упрощенная)
 -- ===========================================
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='ProductCharacteristics' AND xtype='U')
 BEGIN
     CREATE TABLE ProductCharacteristics (
         ProductId INT NOT NULL,
-        CharacteristicId INT NOT NULL,
-        Value NVARCHAR(200) NOT NULL,
+        Name NVARCHAR(100) NOT NULL,        -- Название характеристики
+        Unit NVARCHAR(20),                  -- Единица измерения (кг, мм, Вт и т.д.)
+        Value NVARCHAR(200) NOT NULL,       -- Значение характеристики
         CreatedAt DATETIME2 DEFAULT GETDATE(),
-        PRIMARY KEY (ProductId, CharacteristicId),
-        FOREIGN KEY (ProductId) REFERENCES Products(Id) ON DELETE CASCADE,
-        FOREIGN KEY (CharacteristicId) REFERENCES Characteristics(Id) ON DELETE CASCADE
+        PRIMARY KEY (ProductId, Name),
+        FOREIGN KEY (ProductId) REFERENCES Products(Id) ON DELETE CASCADE
     );
 END
 GO
@@ -185,12 +170,8 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_SaleItems_ProductId')
 -- Индексы для ProductCharacteristics
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_ProductCharacteristics_ProductId')
     CREATE INDEX IX_ProductCharacteristics_ProductId ON ProductCharacteristics(ProductId);
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_ProductCharacteristics_CharacteristicId')
-    CREATE INDEX IX_ProductCharacteristics_CharacteristicId ON ProductCharacteristics(CharacteristicId);
-
--- Индексы для Characteristics
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Characteristics_Name_Unit')
-    CREATE INDEX IX_Characteristics_Name_Unit ON Characteristics(Name, Unit);
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_ProductCharacteristics_Name')
+    CREATE INDEX IX_ProductCharacteristics_Name ON ProductCharacteristics(Name);
 
 -- Индексы для CartItems
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_CartItems_UserId')
@@ -227,46 +208,8 @@ BEGIN
 END
 GO
 
--- Заполнение характеристик
-IF NOT EXISTS (SELECT * FROM Characteristics)
-BEGIN
-    INSERT INTO Characteristics (Name, Unit) VALUES
-    -- Размеры и вес
-    ('Вес', 'кг'),
-    ('Длина', 'мм'),
-    ('Ширина', 'мм'),
-    ('Высота', 'мм'),
-    ('Диаметр', 'мм'),
-    ('Толщина', 'мм'),
-    ('Внутренний диаметр', 'мм'),
-    ('Наружный диаметр', 'мм'),
-
-    -- Электрика
-    ('Напряжение', 'В'),
-    ('Ток', 'А'),
-    ('Мощность', 'Вт'),
-    ('Сопротивление', 'Ом'),
-
-    -- Материалы
-    ('Материал', NULL),
-    ('Цвет', NULL),
-    ('Марка стали', NULL),
-    ('Тип резьбы', NULL),
-
-    -- Технические параметры
-    ('Объем', 'л'),
-    ('Вместимость', 'л'),
-    ('Давление', 'атм'),
-    ('Температура', '°C'),
-    ('Допустимая нагрузка', 'кг'),
-    ('Срок службы', 'лет'),
-    ('Гарантия', 'мес'),
-    ('Количество', 'шт'),
-    ('Шаг резьбы', 'мм'),
-    ('Класс прочности', NULL),
-    ('Рабочая температура', '°C');
-END
-GO
+-- Характеристики теперь управляются в коде приложения
+-- Таблица Characteristics удалена для упрощения структуры
 
 -- ===========================================
 -- ПОЛЕЗНЫЕ ЗАПРОСЫ ДЛЯ АНАЛИТИКИ

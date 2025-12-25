@@ -278,24 +278,15 @@ class DatabaseHelper {
       )
     ''');
 
-    // Characteristics + ProductCharacteristics (для характеристик товара)
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS Characteristics (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        unit TEXT,
-        UNIQUE(name, unit)
-      )
-    ''');
-
+    // ProductCharacteristics (для характеристик товара - упрощенная структура)
     await db.execute('''
       CREATE TABLE IF NOT EXISTS ProductCharacteristics (
         product_id INTEGER NOT NULL,
-        characteristic_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        unit TEXT,
         value TEXT NOT NULL,
-        PRIMARY KEY (product_id, characteristic_id),
-        FOREIGN KEY (product_id) REFERENCES Products(id) ON DELETE CASCADE,
-        FOREIGN KEY (characteristic_id) REFERENCES Characteristics(id) ON DELETE CASCADE
+        PRIMARY KEY (product_id, name),
+        FOREIGN KEY (product_id) REFERENCES Products(id) ON DELETE CASCADE
       )
     ''');
 
