@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
-import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import '../../core/constants/app_strings.dart';
 import '../providers/auth_provider.dart';
 import '../../domain/entities/user.dart';
@@ -18,7 +17,6 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   late TextEditingController _phoneController;
   late TextEditingController _addressController;
   late TextEditingController _emailController;
-  late final MaskTextInputFormatter _phoneMaskFormatter;
   UserRole? _role;
   final _passwordController = TextEditingController();
   bool _showPassword = false;
@@ -27,11 +25,6 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   @override
   void initState() {
     super.initState();
-    _phoneMaskFormatter = MaskTextInputFormatter(
-      mask: '+# (###) ###-##-##',
-      filter: {"#": RegExp(r'[0-9]')},
-      type: MaskAutoCompletionType.lazy,
-    );
 
     final auth = context.read<AuthProvider>();
     _role = auth.role;
@@ -108,16 +101,15 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     return 'Телефон обязателен';
                   }
 
-                  // Проверяем что введены только цифры и допустимые символы
-                  final phoneRegex = RegExp(r'^[\d\s\-\+\(\)]+$');
+                  // Проверяем что введены только цифры
+                  final phoneRegex = RegExp(r'^\d+$');
                   if (!phoneRegex.hasMatch(value.trim())) {
                     return 'Телефон должен содержать только цифры';
                   }
 
-                  // Проверяем минимальную длину (без учета форматирования)
-                  final digitsOnly = value.replaceAll(RegExp(r'[^\d]'), '');
-                  if (digitsOnly.length < 10) {
-                    return 'Введите полный номер телефона (минимум 10 цифр)';
+                  // Проверяем минимальную длину
+                  if (value.trim().length < 10) {
+                    return 'Введите номер телефона (минимум 10 цифр)';
                   }
 
                   return null;
@@ -125,7 +117,6 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 keyboardType: TextInputType.phone,
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
-                  _phoneMaskFormatter,
                 ],
                 onChanged: (text) {
                   setState(() {});

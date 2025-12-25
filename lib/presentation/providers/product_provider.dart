@@ -190,15 +190,6 @@ class ProductProvider with ChangeNotifier {
     await loadProducts(refresh: true);
   }
 
-  Future<void> filterByCategory(int? categoryId) async {
-    _selectedCategoryId = categoryId;
-    await loadProducts(refresh: true);
-  }
-
-  Future<void> sortProducts(String sortBy) async {
-    _sortBy = sortBy;
-    await loadProducts(refresh: true);
-  }
 
   void setSelectedCategoryId(int? categoryId) {
     _selectedCategoryId = categoryId;

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import '../providers/auth_provider.dart';
 import 'package:flutter/services.dart';
 
@@ -19,7 +18,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _passwordRepeatController = TextEditingController();
-  late final MaskTextInputFormatter _phoneMaskFormatter;
   bool _obscurePass = true;
   bool _obscurePassRepeat = true;
   String? _formError;
@@ -27,11 +25,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
-    _phoneMaskFormatter = MaskTextInputFormatter(
-      mask: '+# (###) ###-##-##',
-      filter: {"#": RegExp(r'[0-9]')},
-      type: MaskAutoCompletionType.lazy,
-    );
   }
 
   @override
@@ -163,16 +156,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return 'Телефон обязателен';
                   }
 
-                  // Проверяем что введены только цифры и допустимые символы
-                  final phoneRegex = RegExp(r'^[\d\s\-\+\(\)]+$');
+                  // Проверяем что введены только цифры
+                  final phoneRegex = RegExp(r'^\d+$');
                   if (!phoneRegex.hasMatch(value.trim())) {
                     return 'Телефон должен содержать только цифры';
                   }
 
-                  // Проверяем минимальную длину (без учета форматирования)
-                  final digitsOnly = value.replaceAll(RegExp(r'[^\d]'), '');
-                  if (digitsOnly.length < 10) {
-                    return 'Введите полный номер телефона (минимум 10 цифр)';
+                  // Проверяем минимальную длину
+                  if (value.trim().length < 10) {
+                    return 'Введите номер телефона (минимум 10 цифр)';
                   }
 
                   return null;
@@ -180,7 +172,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 keyboardType: TextInputType.phone,
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
-                  _phoneMaskFormatter,
                 ],
                 onChanged: (text) {
                   setState(() {});

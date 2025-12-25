@@ -1,4 +1,3 @@
-import 'package:sqflite/sqflite.dart';
 import '../models/sale_model.dart';
 import 'database_helper.dart';
 import '../../core/exceptions/app_exceptions.dart' as app_exceptions;
@@ -176,28 +175,6 @@ class SaleLocalDataSource {
     }
   }
 
-  Future<int> getSalesCount({DateTime? startDate, DateTime? endDate}) async {
-    try {
-      final db = await dbHelper.database;
-      var query = 'SELECT COUNT(DISTINCT s.id) as count FROM Sales s WHERE 1=1';
-      final List<dynamic> whereArgs = [];
-
-      if (startDate != null) {
-        query += ' AND s.created_at >= ?';
-        whereArgs.add(startDate.millisecondsSinceEpoch);
-      }
-
-      if (endDate != null) {
-        query += ' AND s.created_at <= ?';
-        whereArgs.add(endDate.millisecondsSinceEpoch);
-      }
-
-      final result = await db.rawQuery(query, whereArgs);
-      return Sqflite.firstIntValue(result) ?? 0;
-    } catch (e) {
-      throw app_exceptions.AppDatabaseException('Не удалось получить количество продаж: $e');
-    }
-  }
 
   Future<List<SaleModel>> getSalesByOrderNumber(String orderNumber, int userId, {bool ignoreClientDeletedHistory = false}) async {
     try {
