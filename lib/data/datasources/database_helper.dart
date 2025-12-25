@@ -48,7 +48,7 @@ class DatabaseHelper {
     // Открываем существующую БД
     return await openDatabase(
       path,
-      version: 10,
+      version: 11,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
       onOpen: _ensureSalesColumns,
@@ -134,7 +134,55 @@ class DatabaseHelper {
         FOREIGN KEY (product_id) REFERENCES Products(id)
       )
     ''');
-    
+
+    // === Проверяем и обновляем структуру таблицы ProductCharacteristics ===
+    final pcInfo = await db.rawQuery('PRAGMA table_info(ProductCharacteristics)');
+    final pcColumns = pcInfo.map((c) => c['name'].toString().toLowerCase()).toSet();
+
+    // Если есть старая структура с characteristic_id, нужно пересоздать таблицу
+    if (pcColumns.contains('characteristic_id')) {
+      print('Обнаружена старая структура ProductCharacteristics. Пересоздаю таблицу...');
+
+      // Сохраняем старые данные (если возможно получить связанные названия)
+      final oldData = await db.rawQuery('''
+        SELECT pc.product_id, c.name, c.unit, pc.value
+        FROM ProductCharacteristics pc
+        LEFT JOIN Characteristics c ON pc.characteristic_id = c.id
+        WHERE c.name IS NOT NULL
+      ''');
+
+      // Удаляем старую таблицу
+      await db.execute('DROP TABLE ProductCharacteristics');
+
+      // Создаем новую таблицу с упрощенной структурой
+      await db.execute('''
+        CREATE TABLE ProductCharacteristics (
+          product_id INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          unit TEXT,
+          value TEXT NOT NULL,
+          PRIMARY KEY (product_id, name),
+          FOREIGN KEY (product_id) REFERENCES Products(id) ON DELETE CASCADE
+        )
+      ''');
+
+      // Восстанавливаем данные в новой структуре
+      for (final row in oldData) {
+        try {
+          await db.insert('ProductCharacteristics', {
+            'product_id': row['product_id'],
+            'name': row['name'],
+            'unit': row['unit'],
+            'value': row['value'].toString(),
+          }, conflictAlgorithm: ConflictAlgorithm.ignore);
+        } catch (e) {
+          print('Ошибка при восстановлении характеристики: $e');
+        }
+      }
+
+      print('Таблица ProductCharacteristics пересоздана и данные восстановлены');
+    }
+
     // Проверяем структуру таблицы SaleItems и добавляем недостающие колонки
     final saleItemsInfo = await db.rawQuery('PRAGMA table_info(SaleItems)');
     final saleItemsColumns = saleItemsInfo.map((c) => c['name'].toString().toLowerCase()).toSet();
@@ -203,7 +251,7 @@ class DatabaseHelper {
   Future<Database> _createNewDatabase(String path) async {
     return await openDatabase(
       path,
-      version: 10,
+      version: 11,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -566,6 +614,63 @@ class DatabaseHelper {
       ''');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_cartitems_user_id ON CartItems(user_id)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_cartitems_product_id ON CartItems(product_id)');
+    }
+
+    if (oldVersion < 11) {
+      // Миграция на версию 11: обновляем структуру ProductCharacteristics
+      final pcInfo = await db.rawQuery('PRAGMA table_info(ProductCharacteristics)');
+      final pcColumns = pcInfo.map((c) => c['name'].toString().toLowerCase()).toSet();
+
+      // Если есть старая структура с characteristic_id, пересоздаем таблицу
+      if (pcColumns.contains('characteristic_id')) {
+        print('Миграция 11: Обновление структуры ProductCharacteristics');
+
+        // Сохраняем старые данные
+        final oldData = await db.rawQuery('''
+          SELECT pc.product_id, c.name, c.unit, pc.value
+          FROM ProductCharacteristics pc
+          LEFT JOIN Characteristics c ON pc.characteristic_id = c.id
+          WHERE c.name IS NOT NULL
+        ''');
+
+        // Удаляем старую таблицу
+        await db.execute('DROP TABLE ProductCharacteristics');
+
+        // Создаем новую таблицу
+        await db.execute('''
+          CREATE TABLE ProductCharacteristics (
+            product_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            unit TEXT,
+            value TEXT NOT NULL,
+            PRIMARY KEY (product_id, name),
+            FOREIGN KEY (product_id) REFERENCES Products(id) ON DELETE CASCADE
+          )
+        ''');
+
+        // Восстанавливаем данные
+        for (final row in oldData) {
+          try {
+            await db.insert('ProductCharacteristics', {
+              'product_id': row['product_id'],
+              'name': row['name'],
+              'unit': row['unit'],
+              'value': row['value'].toString(),
+            }, conflictAlgorithm: ConflictAlgorithm.ignore);
+          } catch (e) {
+            print('Ошибка при восстановлении характеристики: $e');
+          }
+        }
+
+        // Удаляем индексы старой структуры
+        try { await db.execute('DROP INDEX idx_pc_characteristic_id'); } catch (_) {}
+        try { await db.execute('DROP INDEX idx_c_name_unit'); } catch (_) {}
+
+        // Создаем новый индекс
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_pc_product_id ON ProductCharacteristics(product_id)');
+
+        print('Миграция 11: ProductCharacteristics успешно обновлена');
+      }
     }
   }
 

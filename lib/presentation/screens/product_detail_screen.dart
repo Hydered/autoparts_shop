@@ -26,12 +26,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   String? _error;
 
   @override
-  void initState() {
-    super.initState();
-    _loadProduct();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Перезагружаем данные при возврате к экрану
+    // Убираем проверку _isLoading чтобы данные обновлялись всегда
+    if (ModalRoute.of(context)?.isCurrent == true) {
+      _loadData();
+    }
   }
 
-  Future<void> _loadProduct() async {
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
       _error = null;
@@ -97,7 +107,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         builder: (context) => AddEditProductScreen(product: _product!),
       ),
     );
-    if (mounted) _loadProduct();
+    if (mounted) _loadData();
   }
 
   Future<void> _addToCart() async {

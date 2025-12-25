@@ -247,27 +247,14 @@ class ProductLocalDataSource {
           final value = c.value.trim();
           if (name.isEmpty || value.isEmpty) continue;
 
-          // 1. Найти или добавить характеристику в Characteristics
-          int characteristicId;
-          final existing = await txn.rawQuery(
-            'SELECT id FROM Characteristics WHERE name = ? AND (unit IS ? OR unit = ?)', [name, unit.isEmpty ? null : unit, unit]
-          );
-          if (existing.isNotEmpty) {
-            characteristicId = existing.first['id'] as int;
-          } else {
-            characteristicId = await txn.insert(
-              'Characteristics',
-              {'name': name, 'unit': unit.isEmpty ? null : unit},
-              conflictAlgorithm: ConflictAlgorithm.ignore,
-            );
-          }
-
-          // 2. Вставить запись-связку (product_id, characteristic_id, value)
+          // Вставить характеристику напрямую в ProductCharacteristics
+          // (упрощенная структура без таблицы Characteristics)
           await txn.insert(
             'ProductCharacteristics',
             {
               'product_id': productId,
-              'characteristic_id': characteristicId,
+              'name': name,
+              'unit': unit.isEmpty ? null : unit,
               'value': value,
             },
             conflictAlgorithm: ConflictAlgorithm.replace,
