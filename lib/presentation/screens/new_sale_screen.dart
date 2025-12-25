@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
@@ -355,6 +356,9 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.deny(RegExp(r'\d')),
+                        ],
                       ),
                       const SizedBox(height: 8),
                       TextField(

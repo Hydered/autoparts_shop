@@ -149,6 +149,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 autocorrect: false,
                 enableSuggestions: false,
                 textCapitalization: TextCapitalization.words,
+                inputFormatters: [
+                  FilteringTextInputFormatter.deny(RegExp(r'\d')),
+                ],
               ),
               const SizedBox(height: 8),
               TextFormField(
