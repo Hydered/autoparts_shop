@@ -80,5 +80,10 @@ class ProductRepositoryImpl implements ProductRepository {
   ) async {
     await localDataSource.setProductCharacteristics(productId, characteristics);
   }
+
+  @override
+  Future<List<Map<String, dynamic>>> getAllAvailableCharacteristics() async {
+    return await localDataSource.getAllAvailableCharacteristics();
+  }
 }
 

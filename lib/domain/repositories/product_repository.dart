@@ -18,5 +18,6 @@ abstract class ProductRepository {
   Future<int> getProductCount({String? searchQuery, int? categoryId});
   Future<List<ProductCharacteristic>> getCharacteristicsByProduct(int productId);
   Future<void> setProductCharacteristics(int productId, List<ProductCharacteristic> characteristics);
+  Future<List<Map<String, dynamic>>> getAllAvailableCharacteristics();
 }
 

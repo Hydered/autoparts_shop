@@ -16,8 +16,9 @@ class ProductProvider with ChangeNotifier {
     if (index != -1) {
       final current = _products[index];
       // Уменьшаем доступное количество товара
-      // clamp(0, 1000000) предотвращает отрицательные значения
-      _products[index] = current.copyWith(quantity: (current.quantity - quantity).clamp(0, 1000000));
+      // предотвращаем отрицательные значения
+      final newQuantity = current.quantity - quantity;
+      _products[index] = current.copyWith(quantity: newQuantity < 0 ? 0 : newQuantity);
       notifyListeners();
     }
   }
@@ -302,6 +303,16 @@ class ProductProvider with ChangeNotifier {
   Future<List<ProductCharacteristic>> getCharacteristicsByProduct(int productId) async {
     try {
       return await productRepository.getCharacteristicsByProduct(productId);
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAllAvailableCharacteristics() async {
+    try {
+      return await productRepository.getAllAvailableCharacteristics();
     } catch (e) {
       _error = e.toString();
       notifyListeners();

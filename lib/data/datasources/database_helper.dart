@@ -331,6 +331,32 @@ class DatabaseHelper {
       INSERT OR IGNORE INTO Users (FullName, Phone, Address, Email, PasswordHash, Role)
       VALUES ('Администратор', '-', '-', 'admin@admin.ru', 'admin', 'admin')
     ''');
+
+    // Seed data: добавляем популярные характеристики товаров
+    await db.execute('''
+      INSERT OR IGNORE INTO Characteristics (name, unit)
+      VALUES
+        ('Вес', 'кг'),
+        ('Длина', 'мм'),
+        ('Ширина', 'мм'),
+        ('Высота', 'мм'),
+        ('Диаметр', 'мм'),
+        ('Материал', NULL),
+        ('Цвет', NULL),
+        ('Мощность', 'Вт'),
+        ('Напряжение', 'В'),
+        ('Объем', 'л'),
+        ('Вместимость', 'шт'),
+        ('Толщина', 'мм'),
+        ('Размер', NULL),
+        ('Бренд', NULL),
+        ('Модель', NULL),
+        ('Тип', NULL),
+        ('Форма', NULL),
+        ('Количество', 'шт'),
+        ('Масса', 'г'),
+        ('Плотность', 'г/см³')
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {

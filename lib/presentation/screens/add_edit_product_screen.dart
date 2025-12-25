@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../domain/entities/product.dart';
@@ -466,20 +467,64 @@ class CharacteristicsEditor extends StatefulWidget {
 class _CharacteristicsEditorState extends State<CharacteristicsEditor> {
   late List<_CharacteristicEditingItem> _characteristics;
 
+  // Предопределенные характеристики для автозапчастей
+  static const List<Map<String, dynamic>> _predefinedCharacteristics = [
+    {'name': 'Вес', 'unit': 'кг', 'type': 'numeric'},
+    {'name': 'Длина', 'unit': 'мм', 'type': 'numeric'},
+    {'name': 'Ширина', 'unit': 'мм', 'type': 'numeric'},
+    {'name': 'Высота', 'unit': 'мм', 'type': 'numeric'},
+    {'name': 'Диаметр', 'unit': 'мм', 'type': 'numeric'},
+    {'name': 'Материал', 'unit': null, 'type': 'text'},
+    {'name': 'Цвет', 'unit': null, 'type': 'text'},
+    {'name': 'Мощность', 'unit': 'Вт', 'type': 'numeric'},
+    {'name': 'Напряжение', 'unit': 'В', 'type': 'numeric'},
+    {'name': 'Ток', 'unit': 'А', 'type': 'numeric'},
+    {'name': 'Сопротивление', 'unit': 'Ом', 'type': 'numeric'},
+    {'name': 'Объем', 'unit': 'л', 'type': 'numeric'},
+    {'name': 'Вместимость', 'unit': 'л', 'type': 'numeric'},
+    {'name': 'Давление', 'unit': 'атм', 'type': 'numeric'},
+    {'name': 'Температура', 'unit': '°C', 'type': 'numeric'},
+    {'name': 'Толщина', 'unit': 'мм', 'type': 'numeric'},
+    {'name': 'Внутренний диаметр', 'unit': 'мм', 'type': 'numeric'},
+    {'name': 'Наружный диаметр', 'unit': 'мм', 'type': 'numeric'},
+    {'name': 'Количество', 'unit': 'шт', 'type': 'numeric'},
+    {'name': 'Марка стали', 'unit': null, 'type': 'text'},
+    {'name': 'Тип резьбы', 'unit': null, 'type': 'text'},
+    {'name': 'Шаг резьбы', 'unit': 'мм', 'type': 'numeric'},
+    {'name': 'Класс прочности', 'unit': null, 'type': 'text'},
+    {'name': 'Рабочая температура', 'unit': '°C', 'type': 'numeric'},
+    {'name': 'Допустимая нагрузка', 'unit': 'кг', 'type': 'numeric'},
+    {'name': 'Срок службы', 'unit': 'лет', 'type': 'numeric'},
+    {'name': 'Гарантия', 'unit': 'мес', 'type': 'numeric'},
+  ];
+
+  // Получить тип характеристики
+  String _getCharacteristicType(String? characteristicName) {
+    if (characteristicName == null) return 'text'; // Для custom характеристик
+
+    final characteristic = _predefinedCharacteristics.firstWhere(
+      (char) => char['name'] == characteristicName,
+      orElse: () => {'type': 'text'},
+    );
+
+    return characteristic['type'] as String? ?? 'text';
+  }
+
+  // Получить уникальные названия характеристик для выпадающего списка
+  List<String> get _uniqueCharacteristicNames {
+    final names = _predefinedCharacteristics.map((char) => char['name'] as String).toSet();
+    return names.toList()..sort();
+  }
+
   @override
   void initState() {
     super.initState();
     _characteristics = widget.initialList != null
         ? widget.initialList!
-            .map((e) => _CharacteristicEditingItem(
-                  name: TextEditingController(text: e.name),
-                  value: TextEditingController(text: e.value),
-                  unit: TextEditingController(text: e.unit ?? ''),
-                ))
+            .map((e) => _createCharacteristicItemFromExisting(e))
             .toList()
         : [
             _CharacteristicEditingItem(
-              name: TextEditingController(),
               value: TextEditingController(),
               unit: TextEditingController(),
             ),
@@ -487,10 +532,34 @@ class _CharacteristicsEditorState extends State<CharacteristicsEditor> {
     _emitChanged();
   }
 
+  _CharacteristicEditingItem _createCharacteristicItemFromExisting(ProductCharacteristic e) {
+    // Ищем совпадение с предопределенными характеристиками
+    final predefined = _predefinedCharacteristics.firstWhere(
+      (predef) => predef['name'] == e.name && predef['unit'] == e.unit,
+      orElse: () => {'name': null, 'unit': null},
+    );
+
+    if (predefined['name'] != null) {
+      // Найдено совпадение с предопределенной характеристикой
+      return _CharacteristicEditingItem(
+        selectedCharacteristic: e.name,
+        value: TextEditingController(text: e.value),
+        unit: TextEditingController(text: e.unit ?? ''),
+      );
+    } else {
+      // Не найдено - используем как custom
+      return _CharacteristicEditingItem(
+        selectedCharacteristic: null, // null означает "Другое"
+        customName: TextEditingController(text: e.name),
+        value: TextEditingController(text: e.value),
+        unit: TextEditingController(text: e.unit ?? ''),
+      );
+    }
+  }
+
   void _addCharacteristic() {
     setState(() {
       _characteristics.add(_CharacteristicEditingItem(
-        name: TextEditingController(),
         value: TextEditingController(),
         unit: TextEditingController(),
       ));
@@ -507,9 +576,9 @@ class _CharacteristicsEditorState extends State<CharacteristicsEditor> {
 
   void _emitChanged() {
     final list = _characteristics
-        .where((item) => item.name.text.trim().isNotEmpty && item.value.text.trim().isNotEmpty)
+        .where((item) => item.name.trim().isNotEmpty && item.value.text.trim().isNotEmpty)
         .map((item) => ProductCharacteristic(
-              name: item.name.text.trim(),
+              name: item.name.trim(),
               value: item.value.text.trim(),
               unit: item.unit.text.trim().isEmpty ? null : item.unit.text.trim(),
             ))
@@ -527,52 +596,111 @@ class _CharacteristicsEditorState extends State<CharacteristicsEditor> {
           final index = entry.key;
           final item = entry.value;
           return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4.0),
-            child: Row(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  flex: 3,
-                  child: TextField(
-                    controller: item.name,
-                    decoration: const InputDecoration(labelText: 'Название'),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: DropdownButtonFormField<String?>(
+                        value: item.selectedCharacteristic,
+                        decoration: const InputDecoration(labelText: 'Характеристика'),
+                        items: [
+                          const DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('Другое...'),
+                          ),
+                          ..._uniqueCharacteristicNames.map((name) {
+                            final variants = _predefinedCharacteristics.where((char) => char['name'] == name);
+                            if (variants.length == 1) {
+                              final char = variants.first;
+                              return DropdownMenuItem<String?>(
+                                value: name,
+                                child: Text('${char['name']} ${char['unit'] != null ? '(${char['unit']})' : ''}'),
+                              );
+                            } else {
+                              return DropdownMenuItem<String?>(
+                                value: name,
+                                child: Text(name),
+                              );
+                            }
+                          }),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            item.selectedCharacteristic = value;
+                            if (value != null) {
+                              final predefined = _predefinedCharacteristics.firstWhere(
+                                (char) => char['name'] == value,
+                                orElse: () => {'unit': null},
+                              );
+                              item.unit.text = predefined['unit'] ?? '';
+                            }
+                          });
+                          _emitChanged();
+                        },
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      tooltip: 'Удалить',
+                      onPressed: () => _removeCharacteristic(index),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+                if (item.isCustom) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: item.customName,
+                    decoration: const InputDecoration(labelText: 'Название характеристики'),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Zа-яА-Я\s\-]')),
+                    ],
                     onChanged: (_) => _emitChanged(),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  flex: 3,
-                  child: TextField(
-                    controller: item.value,
-                    decoration: const InputDecoration(labelText: 'Значение'),
-                    onChanged: (_) => _emitChanged(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  flex: 2,
-                  child: TextField(
-                    controller: item.unit,
-                    decoration: const InputDecoration(labelText: 'Ед. изм.'),
-                    onChanged: (_) => _emitChanged(),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  tooltip: 'Удалить',
-                  onPressed: () => _removeCharacteristic(index),
+                ],
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: TextField(
+                        controller: item.value,
+                        decoration: const InputDecoration(labelText: 'Значение'),
+                        inputFormatters: [
+                          if (_getCharacteristicType(item.selectedCharacteristic) == 'numeric')
+                            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))
+                          else
+                            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Zа-яА-Я\s\-]')),
+                        ],
+                        onChanged: (_) => _emitChanged(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 1,
+                      child: TextField(
+                        controller: item.unit,
+                        decoration: const InputDecoration(labelText: 'Ед. изм.'),
+                        readOnly: item.selectedCharacteristic != null,
+                        onChanged: (_) => _emitChanged(),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           );
         }),
         const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: ElevatedButton.icon(
-            onPressed: _addCharacteristic,
-            icon: const Icon(Icons.add),
-            label: const Text('Добавить'),
-          ),
+        ElevatedButton.icon(
+          onPressed: _addCharacteristic,
+          icon: const Icon(Icons.add),
+          label: const Text('Добавить характеристику'),
         ),
       ],
     );
@@ -580,12 +708,21 @@ class _CharacteristicsEditorState extends State<CharacteristicsEditor> {
 }
 
 class _CharacteristicEditingItem {
-  final TextEditingController name;
+  String? selectedCharacteristic; // Выбранная характеристика или null для "Другое"
+  final TextEditingController customName; // Для ручного ввода, если выбрано "Другое"
   final TextEditingController value;
   final TextEditingController unit;
+
   _CharacteristicEditingItem({
-    required this.name,
+    this.selectedCharacteristic,
+    TextEditingController? customName,
     required this.value,
     required this.unit,
-  });
+  }) : customName = customName ?? TextEditingController();
+
+  // Получить итоговое имя характеристики
+  String get name => selectedCharacteristic ?? customName.text;
+
+  // Проверить, выбрано ли "Другое"
+  bool get isCustom => selectedCharacteristic == null;
 }

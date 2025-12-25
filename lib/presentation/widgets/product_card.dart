@@ -79,6 +79,7 @@ class ProductCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
+                    // Price and quantity in top row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -91,47 +92,54 @@ class ProductCard extends StatelessWidget {
                             color: AppColors.primary,
                           ),
                         ),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: stockColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: stockColor, width: 1),
-                              ),
-                              child: Text(
-                                '${AppStrings.quantity}: $displayQuantity',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: stockColor,
-                                ),
-                              ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: stockColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: stockColor, width: 1),
+                          ),
+                          child: Text(
+                            '$displayQuantity ${AppStrings.quantityShort}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: stockColor,
                             ),
-                            if (onAddToCart != null) ...[
-                              const SizedBox(width: 8),
-                              IconButton(
-                                icon: const Icon(Icons.add_shopping_cart),
-                                color: AppColors.primary,
-                                onPressed: onAddToCart,
-                                tooltip: AppStrings.addToCart,
-                              ),
-                            ],
-                            if (onDelete != null) ...[
-                              const SizedBox(width: 4),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline),
-                                color: AppColors.error,
-                                onPressed: onDelete,
-                                tooltip: AppStrings.delete,
-                              ),
-                            ],
-                          ],
+                          ),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Action buttons in bottom row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (onAddToCart != null) ...[
+                          ElevatedButton.icon(
+                            onPressed: onAddToCart,
+                            icon: const Icon(Icons.add_shopping_cart, size: 16),
+                            label: const Text('В корзину', style: TextStyle(fontSize: 12)),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              minimumSize: const Size(0, 32),
+                            ),
+                          ),
+                        ],
+                        if (onDelete != null) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            color: AppColors.error,
+                            onPressed: onDelete,
+                            tooltip: AppStrings.delete,
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(8),
+                          ),
+                        ],
                       ],
                     ),
                   ],

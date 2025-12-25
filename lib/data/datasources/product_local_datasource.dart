@@ -283,5 +283,18 @@ class ProductLocalDataSource {
       throw app_exceptions.AppDatabaseException('Не удалось сохранить характеристики: $e');
     }
   }
+
+  Future<List<Map<String, dynamic>>> getAllAvailableCharacteristics() async {
+    try {
+      final db = await dbHelper.database;
+      final rows = await db.query(
+        'Characteristics',
+        orderBy: 'name ASC',
+      );
+      return rows;
+    } catch (e) {
+      throw app_exceptions.AppDatabaseException('Не удалось получить список характеристик: $e');
+    }
+  }
 }
 

@@ -15,6 +15,7 @@ class AppStrings {
   static const String category = 'Категория';
   static const String price = 'Цена';
   static const String quantity = 'Количество';
+  static const String quantityShort = 'шт';
   static const String sku = 'Артикул';
   static const String minQuantity = 'Мин. количество';
   static const String addProduct = 'Добавить товар';
