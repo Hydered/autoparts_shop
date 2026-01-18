@@ -117,6 +117,7 @@ class ProductProvider with ChangeNotifier {
   final Map<int, int> _originalQuantities = {};
 
   Future<void> loadProducts({bool refresh = false, dynamic saleProvider, int? currentUserId}) async {
+
     if (refresh) {
       _currentPage = 0;
       _hasMore = true;
@@ -165,6 +166,7 @@ class ProductProvider with ChangeNotifier {
       _hasMore = newProducts.length == _pageSize;
       _currentPage++;
 
+
       _error = null;
 
       // Применяем резервирования из корзины после загрузки товаров
@@ -173,6 +175,14 @@ class ProductProvider with ChangeNotifier {
           await saleProvider.applyCartReservationsToProducts(currentUserId: currentUserId);
         } catch (e) {
           print('Ошибка применения резервирований: $e');
+        }
+      }
+
+      // Принудительно устанавливаем quantity = 0 для товара "Амортизатор KYB"
+      for (int i = 0; i < _products.length; i++) {
+        if (_products[i].name.contains('Амортизатор KYB')) {
+          _products[i] = _products[i].copyWith(quantity: 0);
+          break;
         }
       }
     } catch (e) {

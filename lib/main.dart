@@ -11,16 +11,19 @@ import 'data/datasources/product_local_datasource.dart';
 import 'data/datasources/sale_local_datasource.dart';
 import 'data/datasources/user_local_datasource.dart';
 import 'data/datasources/cart_local_datasource.dart';
+import 'data/datasources/favorites_local_datasource.dart';
 import 'data/repositories/category_repository_impl.dart';
 import 'data/repositories/product_repository_impl.dart';
 import 'data/repositories/sale_repository_impl.dart';
 import 'data/repositories/cart_repository_impl.dart';
+import 'data/repositories/favorites_repository_impl.dart';
 import 'domain/services/inventory_service.dart';
 import 'presentation/providers/category_provider.dart';
 import 'presentation/providers/product_provider.dart';
 import 'presentation/providers/sale_provider.dart';
 import 'presentation/providers/home_provider.dart';
 import 'presentation/providers/auth_provider.dart';
+import 'presentation/providers/favorites_provider.dart';
 import 'presentation/screens/home_screen.dart';
 
 void main() async {
@@ -76,12 +79,14 @@ void main() async {
     final saleDataSource = SaleLocalDataSource(dbHelper);
     final userDataSource = UserLocalDataSource(dbHelper);
     final cartDataSource = CartLocalDataSource(dbHelper);
+    final favoritesDataSource = FavoritesLocalDataSource(dbHelper);
 
     // Initialize repositories
     final categoryRepository = CategoryRepositoryImpl(categoryDataSource);
     final productRepository = ProductRepositoryImpl(productDataSource);
     final saleRepository = SaleRepositoryImpl(saleDataSource);
     final cartRepository = CartRepositoryImpl(cartDataSource);
+    final favoritesRepository = FavoritesRepositoryImpl(favoritesDataSource);
 
     // Initialize services
     final inventoryService = InventoryService(productRepository, cartRepository);
@@ -112,8 +117,20 @@ void main() async {
           ChangeNotifierProvider(
             create: (_) => AuthProvider(userDataSource),
           ),
+          ChangeNotifierProvider(
+            create: (_) => FavoritesProvider(favoritesRepository, productRepository),
+          ),
         ],
-        child: const MyApp(),
+        child: Builder(
+          builder: (context) {
+            // Устанавливаем связь между FavoritesProvider и ProductProvider
+            final favoritesProvider = Provider.of<FavoritesProvider>(context, listen: false);
+            final productProvider = Provider.of<ProductProvider>(context, listen: false);
+            favoritesProvider.setProductProvider(productProvider);
+
+            return const MyApp();
+          },
+        ),
       ),
     );
   } catch (e, stackTrace) {

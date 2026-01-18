@@ -48,7 +48,7 @@ class DatabaseHelper {
     // Открываем существующую БД
     return await openDatabase(
       path,
-      version: 11,
+      version: 15,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
       onOpen: _ensureSalesColumns,
@@ -244,6 +244,23 @@ class DatabaseHelper {
       )
     ''');
 
+
+    // Для тестирования: устанавливаем stock = 0 для товара "Амортизатор KYB"
+    try {
+      print('DatabaseHelper: начинаем обновление товара "Амортизатор KYB"');
+      final beforeUpdate = await db.rawQuery('SELECT id, name, stock FROM Products WHERE name LIKE ?', ['%Амортизатор KYB%']);
+      print('DatabaseHelper: товар до обновления: $beforeUpdate');
+
+      await db.execute('UPDATE Products SET stock = 0 WHERE name LIKE ?', ['%Амортизатор KYB%']);
+      print('DatabaseHelper: SQL UPDATE выполнен');
+
+      // Проверим результат
+      final result = await db.rawQuery('SELECT id, name, stock FROM Products WHERE name LIKE ?', ['%Амортизатор KYB%']);
+      print('DatabaseHelper: результат обновления: $result');
+    } catch (e) {
+      print('DatabaseHelper: ошибка при обновлении товара: $e');
+    }
+
     // Исправляем пути к изображениям при каждом открытии БД
     await updateProductImages(db);
   }
@@ -251,7 +268,7 @@ class DatabaseHelper {
   Future<Database> _createNewDatabase(String path) async {
     return await openDatabase(
       path,
-      version: 11,
+      version: 15,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -350,6 +367,19 @@ class DatabaseHelper {
       )
     ''');
 
+    // Favorites table (для хранения избранных товаров пользователей)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS Favorites (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        product_id INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES Users(Id) ON DELETE CASCADE,
+        FOREIGN KEY (product_id) REFERENCES Products(id) ON DELETE CASCADE,
+        UNIQUE(user_id, product_id)
+      )
+    ''');
+
     // Indexes
     await db.execute('CREATE INDEX IF NOT EXISTS idx_products_category_id ON Products(category_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_sales_created_at ON Sales(created_at)');
@@ -360,6 +390,8 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX IF NOT EXISTS idx_pc_characteristic_id ON ProductCharacteristics(characteristic_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_c_name_unit ON Characteristics(name, unit)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_cartitems_user_id ON CartItems(user_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON Favorites(user_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_favorites_product_id ON Favorites(product_id)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_cartitems_product_id ON CartItems(product_id)');
 
     // Исправляем пути к изображениям товаров в базе данных
@@ -670,6 +702,87 @@ class DatabaseHelper {
         await db.execute('CREATE INDEX IF NOT EXISTS idx_pc_product_id ON ProductCharacteristics(product_id)');
 
         print('Миграция 11: ProductCharacteristics успешно обновлена');
+      }
+    }
+
+    if (oldVersion < 12) {
+      // Миграция на версию 12: добавляем таблицу Favorites
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS Favorites (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          product_id INTEGER NOT NULL,
+          created_at INTEGER NOT NULL,
+          FOREIGN KEY (user_id) REFERENCES Users(Id) ON DELETE CASCADE,
+          FOREIGN KEY (product_id) REFERENCES Products(id) ON DELETE CASCADE,
+          UNIQUE(user_id, product_id)
+        )
+      ''');
+
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON Favorites(user_id)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_favorites_product_id ON Favorites(product_id)');
+
+      print('Миграция 12: таблица Favorites создана');
+    }
+
+    if (oldVersion < 13) {
+      // Миграция на версию 13: устанавливаем stock = 0 для первого товара для тестирования
+      try {
+        await db.execute('UPDATE Products SET stock = 0 WHERE id = 1');
+        print('Миграция 13: установлено stock = 0 для товара с id = 1');
+      } catch (e) {
+        print('Миграция 13: ошибка при обновлении товара: $e');
+      }
+    }
+
+    if (oldVersion < 14) {
+      // Миграция на версию 14: устанавливаем stock = 0 для товара "Амортизатор KYB"
+      try {
+        // Сначала посмотрим, какие товары есть
+        final productsBefore = await db.rawQuery('SELECT id, name, stock FROM Products WHERE name LIKE ?', ['%Амортизатор KYB%']);
+        print('Миграция 14: товары до обновления: $productsBefore');
+
+        final result = await db.rawQuery('UPDATE Products SET stock = 0 WHERE name LIKE ?', ['%Амортизатор KYB%']);
+        print('Миграция 14: SQL результат: $result');
+
+        // Проверим после обновления
+        final productsAfter = await db.rawQuery('SELECT id, name, stock FROM Products WHERE name LIKE ?', ['%Амортизатор KYB%']);
+        print('Миграция 14: товары после обновления: $productsAfter');
+
+        print('Миграция 14: выполнена успешно');
+      } catch (e) {
+        print('Миграция 14: ошибка при обновлении товара: $e');
+      }
+    }
+
+    if (oldVersion < 15) {
+      // Миграция на версию 15: принудительно устанавливаем stock = 0 для товара "Амортизатор KYB"
+      try {
+        print('Миграция 15: начинаем принудительное обновление товара "Амортизатор KYB"');
+
+        // Сначала посмотрим все товары
+        final allProducts = await db.rawQuery('SELECT id, name, stock FROM Products ORDER BY id');
+        print('Миграция 15: все товары в базе: $allProducts');
+
+        // Найдем товар "Амортизатор KYB"
+        final targetProduct = await db.rawQuery('SELECT id, name, stock FROM Products WHERE name LIKE ?', ['%Амортизатор KYB%']);
+        print('Миграция 15: целевой товар: $targetProduct');
+
+        if (targetProduct.isNotEmpty) {
+          final productId = targetProduct.first['id'];
+          await db.execute('UPDATE Products SET stock = 0 WHERE id = ?', [productId]);
+          print('Миграция 15: установлено stock = 0 для товара id = $productId');
+
+          // Проверим результат
+          final result = await db.rawQuery('SELECT id, name, stock FROM Products WHERE id = ?', [productId]);
+          print('Миграция 15: результат: $result');
+        } else {
+          print('Миграция 15: товар "Амортизатор KYB" не найден');
+        }
+
+        print('Миграция 15: выполнена успешно');
+      } catch (e) {
+        print('Миграция 15: ошибка: $e');
       }
     }
   }

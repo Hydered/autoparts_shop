@@ -8,6 +8,7 @@ import '../providers/auth_provider.dart';
 import '../screens/products_screen.dart';
 import '../screens/new_sale_screen.dart';
 import '../screens/sales_history_screen.dart';
+import '../screens/favorites_screen.dart';
 import 'auth_screen.dart';
 import 'profile_edit_screen.dart';
 import '../widgets/empty_state_widget.dart';
@@ -88,6 +89,12 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       if (auth.isClient)
         const NavigationDestination(
+          icon: Icon(Icons.favorite_border_outlined),
+          selectedIcon: Icon(Icons.favorite),
+          label: 'Избранное',
+        ),
+      if (auth.isClient)
+        const NavigationDestination(
           icon: Icon(Icons.history_outlined),
           selectedIcon: Icon(Icons.history),
           label: AppStrings.history,
@@ -119,7 +126,8 @@ class _HomeScreenState extends State<HomeScreen> {
           currentScreen = const HomeTab();
       }
     } else {
-      // Для гостя и клиента: 0 - Товары, 1 - Корзина, 2 - История (только для клиента)
+      // Для гостя: 0 - Товары, 1 - Корзина
+      // Для клиента: 0 - Товары, 1 - Корзина, 2 - Избранное, 3 - История
       switch (_currentIndex) {
         case 0:
           currentScreen = const ProductsScreen();
@@ -128,6 +136,13 @@ class _HomeScreenState extends State<HomeScreen> {
           currentScreen = const NewSaleScreen();
           break;
         case 2:
+          if (auth.isClient) {
+            currentScreen = const FavoritesScreen();
+          } else {
+            currentScreen = const SalesHistoryScreen();
+          }
+          break;
+        case 3:
           currentScreen = const SalesHistoryScreen();
           break;
         default:

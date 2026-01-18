@@ -11,7 +11,11 @@ class ProductCard extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final VoidCallback? onAddToCart;
+  final VoidCallback? onToggleFavorite;
+  final bool isFavorite;
   final int? availableQuantity; // Доступное количество (для клиентов/гостей)
+  final bool showQuantity; // Показывать ли количество товара
+  final bool isAdmin; // Является ли пользователь админом
 
   const ProductCard({
     super.key,
@@ -20,13 +24,22 @@ class ProductCard extends StatelessWidget {
     this.onEdit,
     this.onDelete,
     this.onAddToCart,
+    this.onToggleFavorite,
+    this.isFavorite = false,
     this.availableQuantity,
+    this.showQuantity = true, // По умолчанию показывать количество
+    this.isAdmin = false, // По умолчанию не админ
   });
 
   @override
   Widget build(BuildContext context) {
     // Определяем количество для отображения: доступное для клиентов, реальное для админа
     final displayQuantity = availableQuantity ?? product.quantity;
+    final isOutOfStock = displayQuantity == 0;
+
+
+
+
 
     final isLowStock = displayQuantity <= (product.minQuantity);
     final stockColor = displayQuantity == 0
@@ -38,22 +51,55 @@ class ProductCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       elevation: 2,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
+      color: isOutOfStock ? Colors.grey[200] : null,
+      shape: isOutOfStock
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Colors.grey, width: 2),
+            )
+          : null,
+      child: Opacity(
+        opacity: isOutOfStock ? 0.7 : 1.0,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Product Image
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: ProductImageWidget(
-                  imagePath: product.imagePath,
-                  width: 80,
-                  height: 80,
-                  fit: BoxFit.cover,
-                ),
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: ProductImageWidget(
+                      imagePath: product.imagePath,
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  if (onToggleFavorite != null && !isAdmin)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: onToggleFavorite,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.8),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isFavorite ? Icons.favorite : Icons.favorite_border,
+                            size: 16,
+                            color: isFavorite ? AppColors.accent : AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(width: 12),
               // Product Info
@@ -79,7 +125,7 @@ class ProductCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    // Price and quantity in top row
+                    // Price and quantity/status in top row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -92,25 +138,55 @@ class ProductCard extends StatelessWidget {
                             color: AppColors.primary,
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: stockColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: stockColor, width: 1),
-                          ),
-                          child: Text(
-                            '$displayQuantity ${AppStrings.quantityShort}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: stockColor,
+                        if (showQuantity) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isOutOfStock
+                                  ? Colors.grey[300]
+                                  : stockColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isOutOfStock ? Colors.grey : stockColor,
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              isOutOfStock ? 'будет позже' : '$displayQuantity ${AppStrings.quantityShort}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isOutOfStock ? Colors.grey[700] : stockColor,
+                              ),
                             ),
                           ),
-                        ),
+                        ] else if (isOutOfStock) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[300],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.grey,
+                                width: 1,
+                              ),
+                            ),
+                            child: const Text(
+                              'будет позже',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF616161),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -118,16 +194,45 @@ class ProductCard extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        if (onAddToCart != null) ...[
-                          ElevatedButton.icon(
-                            onPressed: onAddToCart,
-                            icon: const Icon(Icons.add_shopping_cart, size: 16),
-                            label: const Text('В корзину', style: TextStyle(fontSize: 12)),
-                            style: ElevatedButton.styleFrom(
+                        if (onAddToCart != null && (!isOutOfStock || showQuantity)) ...[
+                          if (isOutOfStock) ...[
+                            Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              minimumSize: const Size(0, 32),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.access_time,
+                                    size: 16,
+                                    color: Colors.grey[700],
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'закончился',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[700],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
+                          ] else ...[
+                            ElevatedButton.icon(
+                              onPressed: onAddToCart,
+                              icon: const Icon(Icons.add_shopping_cart, size: 16),
+                              label: const Text('В корзину', style: TextStyle(fontSize: 12)),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                minimumSize: const Size(0, 32),
+                              ),
+                            ),
+                          ],
                         ],
                         if (onDelete != null) ...[
                           const SizedBox(width: 8),
@@ -149,6 +254,7 @@ class ProductCard extends StatelessWidget {
           ),
         ),
       ),
+        ),
     );
   }
 }

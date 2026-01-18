@@ -6,6 +6,7 @@ import '../providers/product_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/sale_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/favorites_provider.dart';
 import '../widgets/product_card.dart';
 import '../widgets/profile_section.dart';
 import '../../domain/entities/sale_item.dart';
@@ -14,6 +15,7 @@ import '../widgets/empty_state_widget.dart';
 import '../widgets/loading_widget.dart';
 import 'product_detail_screen.dart' show ProductDetailScreen;
 import 'add_edit_product_screen.dart';
+import 'auth_screen.dart';
 import 'dart:async';
 
 class ProductsScreen extends StatefulWidget {
@@ -28,6 +30,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   Timer? _debounceTimer;
   final ScrollController _scrollController = ScrollController();
   final Map<int, int> _availableQuantitiesCache = {};
+  final Map<int, bool> _favoritesCache = {};
 
   @override
   void initState() {
@@ -88,6 +91,71 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   void _clearAvailableQuantitiesCache() {
     _availableQuantitiesCache.clear();
+  }
+
+  Future<bool> _getFavoriteStatus(int productId, int? userId, FavoritesProvider favoritesProvider) async {
+    if (userId == null) return false;
+    if (_favoritesCache.containsKey(productId)) {
+      return _favoritesCache[productId]!;
+    }
+    final isFavorite = await favoritesProvider.isProductInFavorites(userId, productId);
+    _favoritesCache[productId] = isFavorite;
+    return isFavorite;
+  }
+
+  Future<void> _toggleFavorite(Product product, int? userId, FavoritesProvider favoritesProvider) async {
+    if (userId == null) {
+      // Показать диалог авторизации для гостей
+      _showAuthRequiredDialog();
+      return;
+    }
+
+    if (product.id == null) return;
+
+    final currentStatus = await _getFavoriteStatus(product.id!, userId, favoritesProvider);
+    final success = await favoritesProvider.toggleFavorite(userId, product.id!);
+
+    if (success) {
+      setState(() {
+        _favoritesCache[product.id!] = !currentStatus;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(currentStatus
+                ? '${product.name} удален из избранного'
+                : '${product.name} добавлен в избранное'),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showAuthRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Требуется авторизация'),
+        content: const Text(
+          'Чтобы добавлять товары в избранное, необходимо зарегистрироваться или войти в аккаунт.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Отмена'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AuthScreen()),
+              );
+            },
+            child: const Text('Войти'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showFilterDialog() async {
@@ -202,6 +270,20 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   Future<void> _addToCart(Product product, int? userId, SaleProvider saleProvider, bool isGuest) async {
     if (product.id == null) return;
+
+    // Проверяем, есть ли товар в наличии
+    if (product.quantity == 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Товар закончился'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
     try {
       await saleProvider.inventoryService.validateSale(product.id!, 1, userId);
       await saleProvider.addToCart(
@@ -362,10 +444,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               if (auth.isAdmin) return true;
 
                               // Для обычных пользователей (клиенты и гости):
-                              // показываем только товары с доступным количеством > 0
-                              // product.quantity уже учитывает резервирования всех пользователей
-                              return product.quantity > 0;
+                              // показываем все товары, включая с нулевым количеством
+                              // они будут отображаться с соответствующим статусом
+                              return true;
                             }).toList();
+
 
                           return ListView.builder(
                             controller: _scrollController,
@@ -379,25 +462,39 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               }
                               final product = filteredProducts[index];
                               final availQty = product.quantity;
-                              return ProductCard(
-                                product: product,
-                                availableQuantity: availQty,
-                                onTap: () {
-                                  if (product.id != null) {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => ProductDetailScreen(productId: product.id!),
-                                      ),
-                                    );
-                                  }
+
+                              return Consumer<FavoritesProvider>(
+                                builder: (context, favoritesProvider, child) {
+                                  return FutureBuilder<bool>(
+                                    future: _getFavoriteStatus(product.id ?? 0, auth.userId, favoritesProvider),
+                                    builder: (context, snapshot) {
+                                      final isFavorite = snapshot.data ?? false;
+                                      return ProductCard(
+                                        product: product,
+                                        availableQuantity: availQty,
+                                        isFavorite: isFavorite,
+                                        isAdmin: auth.isAdmin,
+                                        onTap: () {
+                                          if (product.id != null) {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => ProductDetailScreen(productId: product.id!),
+                                              ),
+                                            );
+                                          }
+                                        },
+                                        onAddToCart: auth.isAdmin
+                                            ? null
+                                            : () => _addToCart(product, auth.userId, saleProvider, auth.isGuest),
+                                        onToggleFavorite: () => _toggleFavorite(product, auth.userId, favoritesProvider),
+                                        onDelete: auth.isAdmin
+                                            ? () => _deleteProduct(product, auth.isGuest, auth.userId)
+                                            : null,
+                                      );
+                                    },
+                                  );
                                 },
-                                onAddToCart: auth.isAdmin
-                                    ? null
-                                    : () => _addToCart(product, auth.userId, saleProvider, auth.isGuest),
-                                onDelete: auth.isAdmin
-                                    ? () => _deleteProduct(product, auth.isGuest, auth.userId)
-                                    : null,
                               );
                             },
                           );
