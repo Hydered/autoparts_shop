@@ -13,6 +13,8 @@ class ProductModel extends Product {
     super.imagePath,
     required super.createdAt,
     required super.updatedAt,
+    super.discountPercent,
+    super.originalPrice,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -31,6 +33,16 @@ class ProductModel extends Product {
     final sku = json['SKU'] as String? ?? json['sku'] as String? ?? '';
     final minQuantity = json['MinQuantity'] as int? ?? json['min_quantity'] as int? ?? 5;
     final imagePath = json['ImageUrl'] as String? ?? json['image_path'] as String? ?? json['ImagePath'] as String?;
+    final discountPercent = json['DiscountPercent'] != null 
+        ? (json['DiscountPercent'] as num).toDouble()
+        : (json['discount_percent'] != null 
+            ? (json['discount_percent'] as num).toDouble() 
+            : null);
+    final originalPrice = json['OriginalPrice'] != null
+        ? (json['OriginalPrice'] as num).toDouble()
+        : (json['original_price'] != null
+            ? (json['original_price'] as num).toDouble()
+            : null);
     
     final createdAt = json['CreatedAt'] != null
         ? DateTime.fromMillisecondsSinceEpoch(json['CreatedAt'] as int)
@@ -56,6 +68,8 @@ class ProductModel extends Product {
       imagePath: imagePath,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      discountPercent: discountPercent,
+      originalPrice: originalPrice,
     );
   }
 
@@ -72,6 +86,8 @@ class ProductModel extends Product {
       if (imagePath != null && imagePath!.isNotEmpty) 'image_url': imagePath,
       'created_at': createdAt.millisecondsSinceEpoch,
       'updated_at': updatedAt.millisecondsSinceEpoch,
+      if (discountPercent != null) 'discount_percent': discountPercent,
+      if (originalPrice != null) 'original_price': originalPrice,
     };
   }
 
@@ -88,6 +104,8 @@ class ProductModel extends Product {
       imagePath: product.imagePath,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
+      discountPercent: product.discountPercent,
+      originalPrice: product.originalPrice,
     );
   }
 
@@ -104,6 +122,8 @@ class ProductModel extends Product {
     String? imagePath,
     DateTime? createdAt,
     DateTime? updatedAt,
+    double? discountPercent,
+    double? originalPrice,
   }) {
     return ProductModel(
       id: id ?? this.id,
@@ -117,6 +137,8 @@ class ProductModel extends Product {
       imagePath: imagePath ?? this.imagePath,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      discountPercent: discountPercent ?? this.discountPercent,
+      originalPrice: originalPrice ?? this.originalPrice,
     );
   }
 }

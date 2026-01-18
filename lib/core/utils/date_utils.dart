@@ -2,15 +2,15 @@ import 'package:intl/intl.dart';
 
 class DateUtils {
   static String formatDate(DateTime date) {
-    return DateFormat('yyyy-MM-dd').format(date);
+    return DateFormat('dd.MM.yyyy', 'ru_RU').format(date);
   }
   
   static String formatDateTime(DateTime date) {
-    return DateFormat('yyyy-MM-dd HH:mm').format(date);
+    return DateFormat('dd.MM.yyyy HH:mm', 'ru_RU').format(date);
   }
   
   static String formatDateDisplay(DateTime date) {
-    return DateFormat('MMM dd, yyyy').format(date);
+    return DateFormat('dd.MM.yyyy', 'ru_RU').format(date);
   }
   
   static DateTime getToday() {

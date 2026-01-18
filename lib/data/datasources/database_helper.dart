@@ -109,6 +109,12 @@ class DatabaseHelper {
     if (!productsColumns.contains('sku')) {
       try { await db.execute('ALTER TABLE Products ADD COLUMN sku TEXT'); } catch (_) {}
     }
+    if (!productsColumns.contains('discount_percent')) {
+      try { await db.execute('ALTER TABLE Products ADD COLUMN discount_percent REAL'); } catch (_) {}
+    }
+    if (!productsColumns.contains('original_price')) {
+      try { await db.execute('ALTER TABLE Products ADD COLUMN original_price REAL'); } catch (_) {}
+    }
     // Для совместимости со старой БД: добавляем category_id если есть только CategoryId
     if (!productsColumns.contains('category_id') && productsColumns.contains('categoryid')) {
       try { await db.execute('ALTER TABLE Products ADD COLUMN category_id INTEGER'); } catch (_) {}
@@ -268,7 +274,7 @@ class DatabaseHelper {
   Future<Database> _createNewDatabase(String path) async {
     return await openDatabase(
       path,
-      version: 15,
+      version: 16,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -297,6 +303,8 @@ class DatabaseHelper {
         stock INTEGER DEFAULT 0,
         created_at INTEGER,
         updated_at INTEGER,
+        discount_percent REAL,
+        original_price REAL,
         FOREIGN KEY (category_id) REFERENCES Categories(id)
       )
     ''');
@@ -784,6 +792,23 @@ class DatabaseHelper {
       } catch (e) {
         print('Миграция 15: ошибка: $e');
       }
+    }
+
+    if (oldVersion < 16) {
+      // Миграция на версию 16: добавляем поля для скидок
+      try {
+        await db.execute('ALTER TABLE Products ADD COLUMN discount_percent REAL');
+        print('Миграция 16: добавлено поле discount_percent');
+      } catch (e) {
+        print('Миграция 16: ошибка при добавлении discount_percent: $e');
+      }
+      try {
+        await db.execute('ALTER TABLE Products ADD COLUMN original_price REAL');
+        print('Миграция 16: добавлено поле original_price');
+      } catch (e) {
+        print('Миграция 16: ошибка при добавлении original_price: $e');
+      }
+      print('Миграция 16: выполнена успешно');
     }
   }
 

@@ -263,7 +263,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Товар закончился',
+                              'Будет позже',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -300,11 +300,36 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         children: [
                           // Картинка
                           Center(
-                            child: ProductImageWidget(
-                              imagePath: _product!.imagePath,
-                              width: MediaQuery.of(context).size.width * 0.85,
-                              height: 220,
-                              fit: BoxFit.cover,
+                            child: Stack(
+                              children: [
+                                ProductImageWidget(
+                                  imagePath: _product!.imagePath,
+                                  width: MediaQuery.of(context).size.width * 0.85,
+                                  height: 220,
+                                  fit: BoxFit.cover,
+                                ),
+                                // Discount badge
+                                if (_product!.hasDiscount)
+                                  Positioned(
+                                    top: 8,
+                                    right: 8,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red,
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Text(
+                                        '-${_product!.discountPercent!.toInt()}%',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -334,7 +359,33 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               const Icon(Icons.monetization_on, size: 18, color: AppColors.textSecondary),
                               const SizedBox(width: 6),
                               Text('${AppStrings.price}: ', style: const TextStyle(fontWeight: FontWeight.w500)),
-                              Text('${_product!.price} ₽'),
+                              _product!.hasDiscount && !isOutOfStock
+                                  ? Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${_product!.displayOriginalPrice} ₽',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[600],
+                                            decoration: TextDecoration.lineThrough,
+                                            decorationColor: Colors.red,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${_product!.price} ₽',
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Text(
+                                      '${_product!.displayPrice} ₽',
+                                      style: const TextStyle(fontWeight: FontWeight.w500),
+                                    ),
                             ],
                           ),
                           const SizedBox(height: 16),

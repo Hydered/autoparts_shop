@@ -234,10 +234,10 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           if (_favoriteProducts.isNotEmpty)
             TextButton.icon(
               onPressed: _clearAllFavorites,
-              icon: const Icon(Icons.clear_all, color: AppColors.error),
+              icon: const Icon(Icons.clear_all, color: Color.fromARGB(255, 255, 255, 255)),
               label: const Text(
-                'Удалить все',
-                style: TextStyle(color: AppColors.error),
+                'Очистить',
+                style: TextStyle(color: Color.fromARGB(255, 255, 255, 255)),
               ),
             ),
         ],

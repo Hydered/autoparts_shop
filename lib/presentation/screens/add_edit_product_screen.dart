@@ -28,10 +28,12 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   final _priceController = TextEditingController();
   final _quantityController = TextEditingController();
   final _skuController = TextEditingController();
+  final _discountController = TextEditingController();
   final _imagePicker = ImagePicker();
   int? _selectedCategoryId;
   File? _selectedImage;
   String? _currentImagePath; // Путь к текущему изображению товара
+  double? _originalPrice; // Оригинальная цена (до скидки)
 
   List<ProductCharacteristic> _editedCharacteristics = [];
   List<ProductCharacteristic>? _initialCharacteristics;
@@ -43,13 +45,30 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     if (widget.product != null) {
       _nameController.text = widget.product!.name;
       _descriptionController.text = widget.product!.description;
-      _priceController.text = widget.product!.price.toString();
+      
+      // Устанавливаем оригинальную цену и цену
+      if (widget.product!.originalPrice != null && widget.product!.discountPercent != null) {
+        _originalPrice = widget.product!.originalPrice;
+        // Показываем цену со скидкой (она будет readonly при наличии скидки)
+        _priceController.text = widget.product!.price.toStringAsFixed(2);
+        _discountController.text = widget.product!.discountPercent!.toInt().toString();
+      } else {
+        _originalPrice = widget.product!.price;
+        _priceController.text = widget.product!.price.toString();
+        _discountController.text = '';
+      }
+      
       _quantityController.text = widget.product!.quantity.toString();
       _skuController.text = widget.product!.sku;
       _selectedCategoryId = widget.product!.categoryId;
       _currentImagePath = widget.product!.imagePath;
       _loadCharacteristics();
+    } else {
+      _originalPrice = null;
     }
+    
+    // Добавляем слушатель для поля скидки
+    _discountController.addListener(_onDiscountChanged);
   }
 
   Future<void> _loadCharacteristics() async {
@@ -78,7 +97,45 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     _priceController.dispose();
     _quantityController.dispose();
     _skuController.dispose();
+    _discountController.removeListener(_onDiscountChanged);
+    _discountController.dispose();
     super.dispose();
+  }
+
+  void _onDiscountChanged() {
+    final discountText = _discountController.text.trim();
+    
+    // Если поле пустое, убираем скидку - восстанавливаем оригинальную цену
+    if (discountText.isEmpty) {
+      if (_originalPrice != null) {
+        setState(() {
+          _priceController.text = _originalPrice!.toStringAsFixed(2);
+          // Не сбрасываем _originalPrice здесь, чтобы сохранить при удалении скидки
+        });
+      }
+      return;
+    }
+
+    final discount = double.tryParse(discountText);
+    if (discount == null || discount < 0 || discount > 100) {
+      return;
+    }
+
+    // Если оригинальной цены еще нет, сохраняем текущую цену как оригинальную
+    if (_originalPrice == null) {
+      final currentPrice = double.tryParse(_priceController.text);
+      if (currentPrice != null && currentPrice > 0) {
+        _originalPrice = currentPrice;
+      } else {
+        return; // Не можем рассчитать скидку без цены
+      }
+    }
+
+    // Вычисляем новую цену со скидкой на основе оригинальной цены
+    final newPrice = _originalPrice! * (1 - discount / 100);
+    setState(() {
+      _priceController.text = newPrice.toStringAsFixed(2);
+    });
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -159,18 +216,49 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       }
     }
 
+    // Обрабатываем скидку
+    final discountText = _discountController.text.trim();
+    double? discountPercent;
+    double? originalPrice;
+    double finalPrice = double.parse(_priceController.text);
+
+    if (discountText.isNotEmpty) {
+      final discount = double.tryParse(discountText);
+      if (discount != null && discount > 0 && discount <= 100) {
+        discountPercent = discount;
+        // Используем сохраненную оригинальную цену или текущую как оригинальную
+        if (_originalPrice != null) {
+          originalPrice = _originalPrice!;
+          finalPrice = originalPrice * (1 - discount / 100);
+        } else {
+          // Если оригинальной цены нет, считаем что текущая цена уже со скидкой
+          // Восстанавливаем оригинальную цену обратным расчетом
+          originalPrice = finalPrice / (1 - discount / 100);
+        }
+      }
+    } else {
+      // Скидка убрана - восстанавливаем оригинальную цену
+      if (_originalPrice != null) {
+        finalPrice = _originalPrice!;
+        originalPrice = null;
+        discountPercent = null;
+      }
+    }
+
     final product = Product(
       id: widget.product?.id,
       name: _nameController.text.trim(),
       description: _descriptionController.text.trim(),
       categoryId: _selectedCategoryId!,
-      price: double.parse(_priceController.text),
+      price: finalPrice,
       quantity: int.parse(_quantityController.text),
       sku: _skuController.text.trim(),
       minQuantity: widget.product?.minQuantity ?? 5,
       imagePath: finalImagePath,
       createdAt: widget.product?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
+      discountPercent: discountPercent,
+      originalPrice: originalPrice,
     );
 
     final provider = context.read<ProductProvider>();
@@ -382,12 +470,34 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                 prefixText: '₽',
               ),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              readOnly: _discountController.text.trim().isNotEmpty && double.tryParse(_discountController.text.trim()) != null,
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return AppStrings.requiredField;
                 }
                 if (double.tryParse(value) == null || double.parse(value) < 0) {
                   return 'Некорректная цена';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            // Discount
+            TextFormField(
+              controller: _discountController,
+              decoration: const InputDecoration(
+                labelText: 'Скидка (%)',
+                border: OutlineInputBorder(),
+                suffixText: '%',
+                hintText: '0-100',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              validator: (value) {
+                if (value != null && value.isNotEmpty) {
+                  final discount = double.tryParse(value);
+                  if (discount == null || discount < 0 || discount > 100) {
+                    return 'Скидка должна быть от 0 до 100%';
+                  }
                 }
                 return null;
               },

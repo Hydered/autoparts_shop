@@ -79,6 +79,27 @@ class ProductCard extends StatelessWidget {
                       fit: BoxFit.cover,
                     ),
                   ),
+                  // Discount badge (показываем только если товар в наличии)
+                  if (product.hasDiscount && !isOutOfStock)
+                    Positioned(
+                      top: 4,
+                      left: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '-${product.discountPercent!.toInt()}%',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
                   if (onToggleFavorite != null && !isAdmin)
                     Positioned(
                       top: 4,
@@ -129,15 +150,44 @@ class ProductCard extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          NumberFormat.currency(locale: 'ru_RU', symbol: '₽')
-                              .format(product.price),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
-                        ),
+                        // Price display with discount
+                        product.hasDiscount && !isOutOfStock
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Old price crossed out
+                                  Text(
+                                    NumberFormat.currency(locale: 'ru_RU', symbol: '₽')
+                                        .format(product.displayOriginalPrice),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                      decoration: TextDecoration.lineThrough,
+                                      decorationColor: Colors.red,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  // New price
+                                  Text(
+                                    NumberFormat.currency(locale: 'ru_RU', symbol: '₽')
+                                        .format(product.price),
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Text(
+                                NumberFormat.currency(locale: 'ru_RU', symbol: '₽')
+                                    .format(product.displayPrice),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
                         if (showQuantity) ...[
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -155,7 +205,7 @@ class ProductCard extends StatelessWidget {
                               ),
                             ),
                             child: Text(
-                              isOutOfStock ? 'будет позже' : '$displayQuantity ${AppStrings.quantityShort}',
+                              isOutOfStock ? 'закончилось' : '$displayQuantity ${AppStrings.quantityShort}',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -178,7 +228,7 @@ class ProductCard extends StatelessWidget {
                               ),
                             ),
                             child: const Text(
-                              'будет позже',
+                              'закончилось',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -212,7 +262,7 @@ class ProductCard extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    'закончился',
+                                    'будет позже',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey[700],

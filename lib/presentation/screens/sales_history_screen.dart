@@ -522,7 +522,45 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                     ),
                   ],
                 ),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      tooltip: 'Удалить историю',
+                      onPressed: () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Удалить историю клиента?'),
+                            content: Text('Вы действительно хотите удалить всю историю покупок клиента "${userData?['FullName'] ?? 'Клиент ID: $userId'}"?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                child: const Text('Отмена'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(true),
+                                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                child: const Text('Удалить'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirmed == true) {
+                          final saleProvider = context.read<SaleProvider>();
+                          await saleProvider.clearClientHistory(userId);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('История клиента удалена')),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                    const Icon(Icons.chevron_right),
+                  ],
+                ),
                 onTap: () {
                   setState(() {
                     _selectedClientId = userId;
